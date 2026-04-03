@@ -78,6 +78,9 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
     val completedTasks: StateFlow<List<TaskEntity>> = repository.getTasksByStatus("completed")
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val reviewTasks: StateFlow<List<TaskEntity>> = repository.getTasksByStatus("needs_review")
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val _themeHue = MutableStateFlow(0f)
     val themeHue = _themeHue.asStateFlow()
 
@@ -134,6 +137,20 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
 
     fun dismissApkUpdateCard() {
         _availableApkUpdate.value = null
+    }
+
+    fun approveReviewTask(context: Context, task: TaskEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.updateTask(task.copy(status = "pending"))
+            ReminderManager.scheduleReminder(context, task.copy(status = "pending"))
+        }
+    }
+
+    fun dismissReviewTask(context: Context, task: TaskEntity) {
+        viewModelScope.launch(Dispatchers.IO) {
+            ReminderManager.cancelReminder(context, task.id)
+            repository.deleteTaskById(task.id)
+        }
     }
 
 

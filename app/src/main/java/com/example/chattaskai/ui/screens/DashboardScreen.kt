@@ -50,6 +50,7 @@ fun DashboardScreen(
 ) {
     val pendingTasks by viewModel.pendingTasks.collectAsState()
     val completedTasks by viewModel.completedTasks.collectAsState()
+    val reviewTasks by viewModel.reviewTasks.collectAsState()
     val dailyQuote by viewModel.dailyQuote.collectAsState()
     val availableApkUpdate by viewModel.availableApkUpdate.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -256,6 +257,30 @@ fun DashboardScreen(
                                 context.startActivity(browserIntent)
                             },
                             onDismiss = { viewModel.dismissApkUpdateCard() }
+                        )
+                    }
+                }
+
+                if (reviewTasks.isNotEmpty()) {
+                    item {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Needs Review",
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                fontFamily = FontLoader.lobster(),
+                                color = Color.White,
+                                fontSize = 28.sp
+                            ),
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                    }
+
+                    items(reviewTasks, key = { it.id }) { task ->
+                        ReviewTaskCard(
+                            task = task,
+                            onApprove = { viewModel.approveReviewTask(context, task) },
+                            onDismiss = { viewModel.dismissReviewTask(context, task) },
+                            onClick = { onTaskClick(task.id) }
                         )
                     }
                 }
@@ -554,6 +579,66 @@ fun TaskCard(
                     tint = Color.White,
                     modifier = Modifier.size(32.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun ReviewTaskCard(
+    task: TaskEntity,
+    onApprove: () -> Unit,
+    onDismiss: () -> Unit,
+    onClick: () -> Unit
+) {
+    val liquidColors = LocalLiquidColors.current
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassMorphism(alpha = 0.06f, cornerRadius = 28.dp)
+            .clickable(onClick = onClick)
+            .padding(20.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = task.title,
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            fontSize = 20.sp
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Needs your confirmation before Taskline adds reminders.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.55f)
+                    )
+                }
+            }
+
+            Text(
+                text = task.originalMessage,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.7f)
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = onApprove,
+                    colors = ButtonDefaults.buttonColors(containerColor = liquidColors.purple)
+                ) {
+                    Text("Add to Tasks")
+                }
+                OutlinedButton(onClick = onDismiss) {
+                    Text("Dismiss")
+                }
             }
         }
     }

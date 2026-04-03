@@ -29,8 +29,11 @@ fun TaskDetailScreen(taskId: Long, viewModel: TaskViewModel, onBack: () -> Unit)
     val context = androidx.compose.ui.platform.LocalContext.current
     val pendingTasks by viewModel.pendingTasks.collectAsState()
     val completedTasks by viewModel.completedTasks.collectAsState()
+    val reviewTasks by viewModel.reviewTasks.collectAsState()
     val task = remember(taskId, pendingTasks, completedTasks) {
-        pendingTasks.find { it.id == taskId } ?: completedTasks.find { it.id == taskId }
+        pendingTasks.find { it.id == taskId }
+            ?: reviewTasks.find { it.id == taskId }
+            ?: completedTasks.find { it.id == taskId }
     }
 
     var isEditing by remember { mutableStateOf(false) }
@@ -194,7 +197,28 @@ fun TaskDetailScreen(taskId: Long, viewModel: TaskViewModel, onBack: () -> Unit)
                 
                 Spacer(modifier = Modifier.weight(1f))
                 
-                if (task.status != "completed") {
+                if (task.status == "needs_review") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Button(
+                            onClick = {
+                                viewModel.approveReviewTask(context, task)
+                                onBack()
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Add to Tasks", fontWeight = FontWeight.Bold)
+                        }
+                        OutlinedButton(
+                            onClick = {
+                                viewModel.dismissReviewTask(context, task)
+                                onBack()
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("Dismiss", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                } else if (task.status != "completed") {
                     Button(
                         onClick = { viewModel.completeTask(context, task); onBack() },
                         modifier = Modifier

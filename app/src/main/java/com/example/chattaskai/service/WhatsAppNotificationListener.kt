@@ -115,12 +115,12 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             if (isValidTask) {
                 scope.launch {
                     try {
-                        val parsedTask = localTaskParser.parse(normalizedText, strict = isStrict)
-                            ?: if (isStrict && hasAction) {
-                                localTaskParser.parse(normalizedText, strict = false)
-                            } else {
-                                null
-                            }
+                        val strictParsedTask = localTaskParser.parse(normalizedText, strict = isStrict)
+                        val parsedTask = strictParsedTask ?: if (isStrict && hasAction) {
+                            localTaskParser.parse(normalizedText, strict = false)
+                        } else {
+                            null
+                        }
 
                         if (parsedTask != null && parsedTask.is_task) {
                             Log.d("WhatsAppListener", "SUCCESS: Task found - ${parsedTask.task}")
@@ -149,8 +149,12 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                                     else -> "Email"
                                 }
                             )
-                            val id = repository.upsertNotificationTask(entity)
-                            com.example.chattaskai.reminder.ReminderManager.scheduleReminder(applicationContext, entity.copy(id = id))
+                            val shouldReview = strictParsedTask == null
+                            val entityToStore = if (shouldReview) entity.copy(status = "needs_review") else entity
+                            val id = repository.upsertNotificationTask(entityToStore)
+                            if (!shouldReview) {
+                                com.example.chattaskai.reminder.ReminderManager.scheduleReminder(applicationContext, entity.copy(id = id))
+                            }
                             Log.d("WhatsAppListener", "Task #$id saved or updated and reminder set.")
                         }
                     } catch (e: Exception) {
