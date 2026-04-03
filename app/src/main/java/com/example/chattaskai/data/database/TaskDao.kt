@@ -19,6 +19,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE status = :status ORDER BY deadlineTimestamp ASC")
     fun getTasksByStatus(status: String): Flow<List<TaskEntity>>
 
+    @Query("SELECT * FROM tasks WHERE status = :status ORDER BY deadlineTimestamp ASC")
+    suspend fun getTasksByStatusOnce(status: String): List<TaskEntity>
+
     @Query("SELECT * FROM tasks WHERE category = :category ORDER BY deadlineTimestamp ASC")
     fun getTasksByCategory(category: String): Flow<List<TaskEntity>>
 

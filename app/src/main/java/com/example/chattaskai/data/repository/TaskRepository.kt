@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.Flow
 class TaskRepository(private val taskDao: TaskDao) {
 
     fun getTasksByStatus(status: String): Flow<List<TaskEntity>> = taskDao.getTasksByStatus(status)
+    suspend fun getTasksByStatusOnce(status: String): List<TaskEntity> = taskDao.getTasksByStatusOnce(status)
     fun getTasksByCategory(category: String): Flow<List<TaskEntity>> = taskDao.getTasksByCategory(category)
 
 
