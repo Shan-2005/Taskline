@@ -22,9 +22,11 @@ import androidx.navigation.compose.rememberNavController
 import androidx.compose.runtime.LaunchedEffect
 import com.example.chattaskai.data.database.AppDatabase
 import com.example.chattaskai.data.repository.TaskRepository
+import com.example.chattaskai.data.profile.ProfileStore
 import com.example.chattaskai.ui.TaskViewModel
 import com.example.chattaskai.ui.TaskViewModelFactory
 import com.example.chattaskai.ui.screens.DashboardScreen
+import com.example.chattaskai.ui.screens.OnboardingScreen
 import com.example.chattaskai.ui.theme.TasklineTheme
 import com.example.chattaskai.ui.theme.buildTypography
 import androidx.navigation.NavType
@@ -42,6 +44,8 @@ class MainActivity : ComponentActivity() {
         
         // Final Resilient Typography Initialization
         val typography = buildTypography(this)
+        val profileStore = ProfileStore(this)
+        val startDestination = if (profileStore.isOnboardingComplete()) "dashboard" else "onboarding"
         
         val dao = AppDatabase.getDatabase(applicationContext).taskDao()
         val repository = TaskRepository(dao)
@@ -67,7 +71,16 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val navController = rememberNavController()
 
-                    NavHost(navController = navController, startDestination = "dashboard") {
+                    NavHost(navController = navController, startDestination = startDestination) {
+                        composable("onboarding") {
+                            OnboardingScreen(
+                                onFinished = {
+                                    navController.navigate("dashboard") {
+                                        popUpTo("onboarding") { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
                         composable("dashboard") {
                             DashboardScreen(
                                 viewModel = viewModel,

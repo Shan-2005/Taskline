@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material3.*
@@ -25,6 +26,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.clickable
 import com.example.chattaskai.ui.TaskViewModel
+import com.example.chattaskai.data.profile.ProfileStore
+import com.example.chattaskai.data.profile.TrackingRules
+import com.example.chattaskai.data.profile.UserProfile
+import com.example.chattaskai.ui.components.ProfileSourcesForm
 import com.example.chattaskai.ui.theme.LocalLiquidColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,11 +40,14 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val colors = LocalLiquidColors.current
+    val profileStore = remember { ProfileStore(context) }
     
     val themeHue by viewModel.themeHue.collectAsState()
     val morningHour by viewModel.morningReminderHour.collectAsState()
     val snoozeMin by viewModel.snoozeMinutes.collectAsState()
     val strictFilter by viewModel.strictFiltering.collectAsState()
+    var profile by remember { mutableStateOf(profileStore.loadProfile()) }
+    var trackingRules by remember { mutableStateOf(profileStore.loadTrackingRules()) }
 
     LaunchedEffect(Unit) {
         viewModel.loadSettings(context)
@@ -71,6 +79,29 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
+            // Account & Sources Section
+            SettingsGroup(title = "Account & Sources", icon = Icons.Default.Person) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Set up the local account that will later sync to mobile and desktop.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.55f)
+                    )
+
+                    ProfileSourcesForm(
+                        profile = profile,
+                        rules = trackingRules,
+                        onProfileChange = { profile = it },
+                        onRulesChange = { trackingRules = it },
+                        onSave = {
+                            profileStore.saveProfile(profile.copy(onboardingComplete = true))
+                            profileStore.saveTrackingRules(trackingRules)
+                        },
+                        saveLabel = "Save Profile & Sources"
+                    )
+                }
+            }
+
             // Appearance Section
             SettingsGroup(title = "Premium Gradients", icon = Icons.Default.Face) {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {

@@ -9,12 +9,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import com.example.chattaskai.data.database.AppDatabase
 import com.example.chattaskai.data.repository.TaskRepository
+import com.example.chattaskai.data.profile.ProfileStore
 
 class WhatsAppNotificationListener : NotificationListenerService() {
 
     private val scope = CoroutineScope(Dispatchers.IO)
     private lateinit var repository: TaskRepository
     private lateinit var localTaskParser: LocalTaskParser
+    private lateinit var profileStore: ProfileStore
     
     // Simple cache to prevent duplicates (Key: sender + text -> Timestamp)
     private val recentMessages = java.util.concurrent.ConcurrentHashMap<String, Long>()
@@ -25,6 +27,7 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         val dao = AppDatabase.getDatabase(applicationContext).taskDao()
         repository = TaskRepository(dao)
         localTaskParser = LocalTaskParser()
+        profileStore = ProfileStore(applicationContext)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -102,6 +105,12 @@ class WhatsAppNotificationListener : NotificationListenerService() {
 
             val prefs = applicationContext.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
             val isStrict = prefs.getBoolean("strict_filter", true)
+            val trackingSnapshot = profileStore.snapshot()
+
+            if (!NotificationSourceMatcher.shouldTrack(packageName, title, normalizedText, trackingSnapshot)) {
+                Log.d("WhatsAppListener", "Notification filtered out by source rules.")
+                return
+            }
 
             // Validation Matrix: 
             // 1. Explicitly asked to do an action (e.g., "Please send...")

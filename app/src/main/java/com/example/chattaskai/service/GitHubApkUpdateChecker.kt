@@ -64,10 +64,16 @@ object GitHubApkUpdateChecker {
             val currentVersionCode = getCurrentVersionCode(context)
             if (selectedVersionCode <= currentVersionCode) return null
 
+            val cacheBustedDownloadUrl = if (selectedDownloadUrl.contains("?")) {
+                "$selectedDownloadUrl&v=$selectedVersionCode"
+            } else {
+                "$selectedDownloadUrl?v=$selectedVersionCode"
+            }
+
             return ApkUpdateInfo(
                 latestVersionCode = selectedVersionCode,
                 latestVersionName = tagName.ifBlank { "v$selectedVersionCode" },
-                downloadUrl = selectedDownloadUrl,
+                downloadUrl = cacheBustedDownloadUrl,
                 releaseNotes = body
             )
         } finally {
