@@ -52,14 +52,21 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             } else {
                 body.toString()
             }
+            val normalizedText = text.trim()
 
-            if (text.isEmpty() || text == "Checking for new messages") {
+            if (normalizedText.isEmpty() || normalizedText == "Checking for new messages") {
                 Log.d("WhatsAppListener", "Skipping empty or system notification.")
                 return
             }
 
+            // Skip content that is usually metadata noise, not actionable tasks.
+            if (normalizedText.length < 8 || normalizedText.startsWith("http", ignoreCase = true)) {
+                Log.d("WhatsAppListener", "Skipping low-signal notification payload.")
+                return
+            }
+
             // Deduplication logic (Fix for "4 tasks for 1 message")
-            val messageKey = "$title|$text"
+            val messageKey = "$title|$normalizedText"
             val currentTime = System.currentTimeMillis()
             val lastProcessed = recentMessages[messageKey] ?: 0L
             if (currentTime - lastProcessed < CACHE_TTL) {
@@ -76,29 +83,34 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 }
             }
 
-            Log.d("WhatsAppListener", "Processing Message from $title: $text")
+            Log.d("WhatsAppListener", "Processing Message from $title: $normalizedText")
 
             // Rebalanced Filter: Tasks are either explicit requests + actions, or actions + timeframes.
             val actionKeywords = listOf("remind", "buy", "call", "send", "submit", "fix", "check", "finish", "complete", "create", "write", "prepare", "report", "document", "todo", "appointment", "meeting", "deadline", "urgent", "review", "update", "cancel", "come", "go", "visit", "attend", "join", "meet", "do", "start", "wrap", "get", "bring", "give", "ask", "tell", "show", "pay", "order", "deliver", "assignment", "submission")
             val requestKeywords = listOf("please", "can you", "could you", "need to", "have to", "must", "make sure", "don't forget", "task:", "todo:", "remind me", "i need", "i want", "kindly", "ensure", "priority", "required")
             val temporalKeywords = listOf("tomorrow", "tonight", "today", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "morning", "evening", "afternoon", "noon", "lunch", "dinner", "eod", "hour", "hr", "min", "month", "week", "daily", "weekly", "monthly", "anytime")
             
-            val lowerText = text.lowercase()
+            val lowerText = normalizedText.lowercase()
             val hasAction = actionKeywords.any { lowerText.contains(it) }
             val hasRequest = requestKeywords.any { lowerText.contains(it) }
-            val hasTimeframe = temporalKeywords.any { lowerText.contains(it) } || text.contains("\\d{1,2}:\\d{2}|\\d{1,2}\\s*(am|pm|hrs)".toRegex(RegexOption.IGNORE_CASE)) || lowerText.contains(" at ") || lowerText.contains(" by ") || text.contains("\\d{1,2}/\\d{1,2}".toRegex()) || text.contains("\\d{4}-\\d{2}-\\d{2}".toRegex())
+            val hasTimeframe = temporalKeywords.any { lowerText.contains(it) } || normalizedText.contains("\\d{1,2}:\\d{2}|\\d{1,2}\\s*(am|pm|hrs)".toRegex(RegexOption.IGNORE_CASE)) || lowerText.contains(" at ") || lowerText.contains(" by ") || normalizedText.contains("\\d{1,2}/\\d{1,2}".toRegex()) || normalizedText.contains("\\d{4}-\\d{2}-\\d{2}".toRegex())
+
+            val prefs = applicationContext.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
+            val isStrict = prefs.getBoolean("strict_filter", true)
 
             // Validation Matrix: 
             // 1. Explicitly asked to do an action (e.g., "Please send...")
             // 2. Action bound to a distinct time Constraints (e.g., "Call him tomorrow")
-            val isValidTask = (hasAction && hasRequest) || (hasAction && hasTimeframe)
+            val isValidTask = if (isStrict) {
+                (hasAction && hasRequest) || (hasAction && hasTimeframe)
+            } else {
+                hasAction
+            }
 
             if (isValidTask) {
                 scope.launch {
                     try {
-                        val prefs = applicationContext.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
-                        val isStrict = prefs.getBoolean("strict_filter", true)
-                        val parsedTask = localTaskParser.parse(text, strict = isStrict)
+                        val parsedTask = localTaskParser.parse(normalizedText, strict = isStrict)
 
                         if (parsedTask != null && parsedTask.is_task) {
                             Log.d("WhatsAppListener", "SUCCESS: Task found - ${parsedTask.task}")
@@ -112,7 +124,7 @@ class WhatsAppNotificationListener : NotificationListenerService() {
 
                             val entity = com.example.chattaskai.data.database.TaskEntity(
                                 title = parsedTask.task,
-                                originalMessage = text,
+                                originalMessage = normalizedText,
                                 sender = title,
                                 deadlineDate = parsedTask.date,
                                 deadlineTime = parsedTask.time,

@@ -27,8 +27,11 @@ import com.example.chattaskai.ui.theme.*
 @Composable
 fun TaskDetailScreen(taskId: Long, viewModel: TaskViewModel, onBack: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val tasks by viewModel.pendingTasks.collectAsState()
-    val task = tasks.find { it.id == taskId }
+    val pendingTasks by viewModel.pendingTasks.collectAsState()
+    val completedTasks by viewModel.completedTasks.collectAsState()
+    val task = remember(taskId, pendingTasks, completedTasks) {
+        pendingTasks.find { it.id == taskId } ?: completedTasks.find { it.id == taskId }
+    }
 
     var isEditing by remember { mutableStateOf(false) }
     var editedTitle by remember { mutableStateOf(task?.title ?: "") }
@@ -191,17 +194,19 @@ fun TaskDetailScreen(taskId: Long, viewModel: TaskViewModel, onBack: () -> Unit)
                 
                 Spacer(modifier = Modifier.weight(1f))
                 
-                Button(
-                    onClick = { viewModel.completeTask(context, task); onBack() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(60.dp)
-                        .clip(RoundedCornerShape(30.dp))
-                        .liquidGradient(listOf(LocalLiquidColors.current.cyan, LocalLiquidColors.current.purple, LocalLiquidColors.current.pink)),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
-                    elevation = ButtonDefaults.buttonElevation(0.dp)
-                ) {
-                    Text("Mark as Completed", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                if (task.status != "completed") {
+                    Button(
+                        onClick = { viewModel.completeTask(context, task); onBack() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(60.dp)
+                            .clip(RoundedCornerShape(30.dp))
+                            .liquidGradient(listOf(LocalLiquidColors.current.cyan, LocalLiquidColors.current.purple, LocalLiquidColors.current.pink)),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                        elevation = ButtonDefaults.buttonElevation(0.dp)
+                    ) {
+                        Text("Mark as Completed", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    }
                 }
             }
         }

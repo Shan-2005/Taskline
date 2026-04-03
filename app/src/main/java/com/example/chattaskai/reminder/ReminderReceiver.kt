@@ -16,36 +16,31 @@ import com.example.chattaskai.data.repository.TaskRepository
 class ReminderReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            // Re-schedule all alarms on device reboot
-            val repository = TaskRepository(AppDatabase.getDatabase(context).taskDao())
-            CoroutineScope(Dispatchers.IO).launch {
-                repository.getTasksByStatus("pending").collect { tasks ->
+        val pendingResult = goAsync()
+        val appContext = context.applicationContext
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val repository = TaskRepository(AppDatabase.getDatabase(appContext).taskDao())
+
+                if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+                    val tasks = repository.getTasksByStatusOnce("pending")
                     tasks.forEach { task ->
-                        ReminderManager.scheduleReminder(context, task)
+                        ReminderManager.scheduleReminder(appContext, task)
                     }
+                    return@launch
                 }
-            }
 
-            return
-        }
+                val taskId = intent.getLongExtra("TASK_ID", -1)
+                val alarmType = intent.getStringExtra("ALARM_TYPE") ?: "FULL"
+                if (taskId == -1L) return@launch
 
-        val taskId = intent.getLongExtra("TASK_ID", -1)
-        val taskTitle = intent.getStringExtra("TASK_TITLE") ?: "Task Reminder"
-        val alarmType = intent.getStringExtra("ALARM_TYPE") ?: "FULL"
-        
-        if (taskId != -1L) {
-            val repository = TaskRepository(AppDatabase.getDatabase(context).taskDao())
-            CoroutineScope(Dispatchers.IO).launch {
                 val task = repository.getTaskById(taskId)
                 if (task != null && task.status == "pending") {
-                    launch(Dispatchers.Main) {
-                        showNotification(context, taskId, taskTitle, alarmType)
-                    }
-                } else {
-                    // Task was completed or deleted, or doesn't exist
-                    // Silently ignore or clean up alarm if needed
+                    showNotification(appContext, taskId, task.title, alarmType)
                 }
+            } finally {
+                pendingResult.finish()
             }
         }
     }
