@@ -29,6 +29,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.LaunchedEffect
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -52,6 +59,23 @@ fun OnboardingScreen(
     var displayName by remember { mutableStateOf(profile.displayName) }
     var email by remember { mutableStateOf(profile.email) }
     var organization by remember { mutableStateOf(profile.organization) }
+    var permissionGranted by remember { mutableStateOf(
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        } else true
+    ) }
+    
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        permissionGranted = isGranted
+    }
+    
+    LaunchedEffect(Unit) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !permissionGranted) {
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LiquidBackground()
@@ -87,6 +111,43 @@ fun OnboardingScreen(
                     OnboardingPoint(Icons.Default.Person, "Complete your profile", "Add your name, email, and organization.")
                     OnboardingPoint(Icons.Default.Email, "Configure in Settings", "Set up WhatsApp contacts, Gmail accounts, and keywords to track.")
                     OnboardingPoint(Icons.Default.CheckCircle, "Review & add tasks", "Check the review queue for weak matches before they become tasks.")
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.1f)),
+                                shape = RoundedCornerShape(20.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, LocalLiquidColors.current.cyan.copy(alpha = 0.3f))
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Text(
+                                        "📲 Notification Access",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        "We need access to capture task mentions from WhatsApp and Gmail.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = Color.White.copy(alpha = 0.7f)
+                                    )
+                                    if (!permissionGranted && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        Button(
+                                            onClick = { permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS) },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = ButtonDefaults.buttonColors(containerColor = LocalLiquidColors.current.cyan)
+                                        ) {
+                                            Text("Enable Notifications", color = Color.Black, fontWeight = FontWeight.Bold)
+                                        }
+                                    } else {
+                                        Text(
+                                            "✓ Notifications enabled",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = LocalLiquidColors.current.cyan,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
                 }
             }
 

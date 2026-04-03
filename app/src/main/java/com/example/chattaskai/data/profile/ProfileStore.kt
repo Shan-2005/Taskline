@@ -75,9 +75,10 @@ class ProfileStore(context: Context) {
     fun setRegistrationComplete(phoneNumber: String) {
         profilePrefs.edit()
             .putBoolean(KEY_REGISTRATION_COMPLETE, true)
+            .putBoolean(KEY_ONBOARDING_COMPLETE, false)
             .apply()
         val profile = loadProfile()
-        saveProfile(profile.copy(phoneNumber = phoneNumber, registrationComplete = true))
+        saveProfile(profile.copy(phoneNumber = phoneNumber, registrationComplete = true, onboardingComplete = false))
     }
 
     fun addKnownWhatsAppSource(source: String) {
