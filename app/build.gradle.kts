@@ -17,6 +17,16 @@ android {
     val keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: providers.gradleProperty("ANDROID_KEYSTORE_PASSWORD").orNull
     val keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: providers.gradleProperty("ANDROID_KEY_ALIAS").orNull
     val keyPassword = System.getenv("ANDROID_KEY_PASSWORD") ?: providers.gradleProperty("ANDROID_KEY_PASSWORD").orNull
+    val resolvedKeystoreFile = keystorePath?.let {
+        val moduleRelative = file(it)
+        val rootRelative = rootProject.file(it)
+        when {
+            moduleRelative.isAbsolute -> moduleRelative
+            moduleRelative.exists() -> moduleRelative
+            rootRelative.exists() -> rootRelative
+            else -> moduleRelative
+        }
+    }
     val hasReleaseSigning = !keystorePath.isNullOrBlank() && !keystorePassword.isNullOrBlank() && !keyAlias.isNullOrBlank() && !keyPassword.isNullOrBlank()
 
     defaultConfig {
@@ -39,7 +49,7 @@ android {
     signingConfigs {
         create("release") {
             if (hasReleaseSigning) {
-                storeFile = file(keystorePath!!)
+                storeFile = resolvedKeystoreFile
                 storePassword = keystorePassword
                 this.keyAlias = keyAlias
                 this.keyPassword = keyPassword
