@@ -34,8 +34,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.chattaskai.data.profile.ProfileStore
-import com.example.chattaskai.data.profile.TrackingRules
-import com.example.chattaskai.data.profile.UserProfile
 import com.example.chattaskai.ui.components.ProfileSourcesForm
 import com.example.chattaskai.ui.components.LiquidBackground
 import com.example.chattaskai.ui.theme.LocalLiquidColors
