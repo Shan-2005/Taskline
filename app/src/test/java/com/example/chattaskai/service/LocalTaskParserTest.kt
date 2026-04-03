@@ -32,4 +32,26 @@ class LocalTaskParserTest {
         assertNotNull(parsed)
         assertEquals(true, parsed?.is_task)
     }
+
+    @Test
+    fun strictMode_parsesMultiLineNotificationText() {
+        val input = "Project Update\nPlease send the revised report by Friday at 3:30 pm"
+
+        val parsed = parser.parse(input, strict = true)
+
+        assertNotNull(parsed)
+        assertEquals(true, parsed?.is_task)
+        assertEquals("15:30", parsed?.time)
+    }
+
+    @Test
+    fun strictMode_parsesShorthandWorkNotification() {
+        val input = "U have work at now 14:24 hr today"
+
+        val parsed = parser.parse(input, strict = true)
+
+        assertNotNull(parsed)
+        assertEquals(true, parsed?.is_task)
+        assertEquals("14:24", parsed?.time)
+    }
 }

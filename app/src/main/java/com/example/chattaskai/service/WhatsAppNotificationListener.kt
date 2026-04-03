@@ -1,5 +1,6 @@
 package com.example.chattaskai.service
 
+import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -41,18 +42,22 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             }
 
             val extras = sbn.notification.extras
-            val title = extras.getString("android.title") ?: "Unknown Sender"
-            
-            // Gmail/Outlook often has subject in title and body in text
-            val subject = extras.getCharSequence("android.title") ?: ""
-            val body = extras.getCharSequence("android.text") ?: ""
-            
-            val text = if (packageName.contains("mail") || packageName.contains("gm") || packageName.contains("outlook")) {
-                "$subject: $body"
+            val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
+                ?: extras.getString("android.title")
+                ?: "Unknown Sender"
+
+            val bodyCandidates = listOfNotNull(
+                extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString(),
+                extras.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
+                extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.joinToString("\n") { it.toString() }
+            ).map { it.trim() }.filter { it.isNotBlank() }
+
+            val body = bodyCandidates.joinToString("\n").trim()
+            val normalizedText = if (packageName.contains("mail") || packageName.contains("gm") || packageName.contains("outlook")) {
+                listOf(title, body).filter { it.isNotBlank() }.joinToString("\n").trim()
             } else {
-                body.toString()
+                body.ifBlank { title }
             }
-            val normalizedText = text.trim()
 
             if (normalizedText.isEmpty() || normalizedText == "Checking for new messages") {
                 Log.d("WhatsAppListener", "Skipping empty or system notification.")
@@ -111,6 +116,11 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 scope.launch {
                     try {
                         val parsedTask = localTaskParser.parse(normalizedText, strict = isStrict)
+                            ?: if (isStrict && hasAction) {
+                                localTaskParser.parse(normalizedText, strict = false)
+                            } else {
+                                null
+                            }
 
                         if (parsedTask != null && parsedTask.is_task) {
                             Log.d("WhatsAppListener", "SUCCESS: Task found - ${parsedTask.task}")
@@ -139,9 +149,9 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                                     else -> "Email"
                                 }
                             )
-                            val id = repository.insertTask(entity)
+                            val id = repository.upsertNotificationTask(entity)
                             com.example.chattaskai.reminder.ReminderManager.scheduleReminder(applicationContext, entity.copy(id = id))
-                            Log.d("WhatsAppListener", "Task #$id saved and reminder set.")
+                            Log.d("WhatsAppListener", "Task #$id saved or updated and reminder set.")
                         }
                     } catch (e: Exception) {
                         Log.e("WhatsAppListener", "Parsing Error: ${e.message}")

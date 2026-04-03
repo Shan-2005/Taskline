@@ -16,12 +16,13 @@ class LocalTaskParser {
         
         // 1. Matrix Check: Does it have an action + timeframe, or action + request?
         val actionKeywords = listOf("remind", "buy", "call", "send", "submit", "fix", "check", "finish", "complete", "create", "write", "prepare", "report", "document", "todo", "appointment", "meeting", "deadline", "urgent", "review", "update", "cancel", "come", "go", "visit", "attend", "join", "meet", "do", "start", "wrap", "get", "bring", "give", "ask", "tell", "show", "pay", "order", "deliver", "assignment", "submission")
+        val shorthandActionPhrases = listOf("have work", "work at", "work on", "work today", "work tomorrow", "have a meeting", "have meeting")
         val requestKeywords = listOf("please", "can you", "could you", "need to", "have to", "must", "make sure", "don't forget", "task:", "todo:", "remind me", "i need", "i want", "kindly", "ensure", "priority", "required")
         val temporalMarkers = listOf("today", "tomorrow", "tonight", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "morning", "evening", "afternoon", "pm", "am", "noon", "lunch", "dinner", "eod", "hour", "hr", "min", "month", "week", "daily", "weekly", "monthly", "anytime")
         
-        val hasAction = actionKeywords.any { lowerText.contains(it) }
+        val hasAction = actionKeywords.any { matchesKeyword(lowerText, it) } || shorthandActionPhrases.any { lowerText.contains(it) }
         val hasRequest = requestKeywords.any { lowerText.contains(it) }
-        val hasTemporalMarker = temporalMarkers.any { lowerText.contains(it) } || text.contains("\\d{1,2}:\\d{2}|\\d{1,2}\\s*(am|pm|hrs)".toRegex(RegexOption.IGNORE_CASE)) || lowerText.contains(" at ") || lowerText.contains(" by ") || text.contains("\\d{1,2}/\\d{1,2}".toRegex()) || text.contains("\\d{4}-\\d{2}-\\d{2}".toRegex())
+        val hasTemporalMarker = temporalMarkers.any { matchesKeyword(lowerText, it) } || text.contains("\\d{1,2}:\\d{2}|\\d{1,2}\\s*(am|pm|hrs)".toRegex(RegexOption.IGNORE_CASE)) || lowerText.contains(" at ") || lowerText.contains(" by ") || text.contains("\\d{1,2}/\\d{1,2}".toRegex()) || text.contains("\\d{4}-\\d{2}-\\d{2}".toRegex())
 
         // Reject plain conversational text
         if (strict) {
@@ -69,14 +70,28 @@ class LocalTaskParser {
             else -> "low"
         }
 
+        val isTask = if (strict) {
+            (hasAction && hasRequest) || (hasAction && hasTemporalMarker)
+        } else {
+            hasAction
+        }
+
         return ParsedTask(
             task = cleanTitle.replaceFirstChar { it.uppercase() },
             date = date,
             time = time,
             priority = priority,
             category = "General", // Local model defaults to General
-            is_task = (hasAction && hasRequest) || (hasAction && hasTemporalMarker)
+            is_task = isTask
         )
+    }
+
+    private fun matchesKeyword(text: String, keyword: String): Boolean {
+        return if (keyword.contains(" ")) {
+            text.contains(keyword)
+        } else {
+            Regex("\\b${Regex.escape(keyword)}\\b", RegexOption.IGNORE_CASE).containsMatchIn(text)
+        }
     }
 
     private fun extractDate(text: String): String {

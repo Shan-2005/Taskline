@@ -15,6 +15,21 @@ class TaskRepository(private val taskDao: TaskDao) {
         return taskDao.insertTask(task)
     }
 
+    suspend fun upsertNotificationTask(task: TaskEntity): Long {
+        val existingTask = taskDao.getTaskBySourceSenderAndMessage(task.sourceApp, task.sender, task.originalMessage)
+        return if (existingTask != null) {
+            val preservedTask = task.copy(
+                id = existingTask.id,
+                status = existingTask.status,
+                createdAt = existingTask.createdAt
+            )
+            taskDao.updateTask(preservedTask)
+            existingTask.id
+        } else {
+            taskDao.insertTask(task)
+        }
+    }
+
     suspend fun updateTask(task: TaskEntity) {
         taskDao.updateTask(task)
     }

@@ -25,6 +25,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE category = :category ORDER BY deadlineTimestamp ASC")
     fun getTasksByCategory(category: String): Flow<List<TaskEntity>>
 
+    @Query("SELECT * FROM tasks WHERE sourceApp = :sourceApp AND sender = :sender AND originalMessage = :originalMessage LIMIT 1")
+    suspend fun getTaskBySourceSenderAndMessage(sourceApp: String, sender: String, originalMessage: String): TaskEntity?
+
     @Query("SELECT * FROM tasks WHERE id = :taskId")
     suspend fun getTaskById(taskId: Long): TaskEntity?
 
