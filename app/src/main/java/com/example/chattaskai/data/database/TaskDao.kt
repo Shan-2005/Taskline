@@ -28,6 +28,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE sourceApp = :sourceApp AND sender = :sender AND originalMessage = :originalMessage LIMIT 1")
     suspend fun getTaskBySourceSenderAndMessage(sourceApp: String, sender: String, originalMessage: String): TaskEntity?
 
+    @Query("SELECT * FROM tasks ORDER BY createdAt DESC")
+    suspend fun getAllTasksOnce(): List<TaskEntity>
+
     @Query("SELECT * FROM tasks WHERE id = :taskId")
     suspend fun getTaskById(taskId: Long): TaskEntity?
 

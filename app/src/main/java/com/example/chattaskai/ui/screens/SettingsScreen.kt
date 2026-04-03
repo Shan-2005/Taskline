@@ -27,8 +27,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.clickable
 import com.example.chattaskai.ui.TaskViewModel
 import com.example.chattaskai.data.profile.ProfileStore
-import com.example.chattaskai.data.profile.TrackingRules
-import com.example.chattaskai.data.profile.UserProfile
 import com.example.chattaskai.ui.components.ProfileSourcesForm
 import com.example.chattaskai.ui.theme.LocalLiquidColors
 
@@ -46,6 +44,7 @@ fun SettingsScreen(
     val morningHour by viewModel.morningReminderHour.collectAsState()
     val snoozeMin by viewModel.snoozeMinutes.collectAsState()
     val strictFilter by viewModel.strictFiltering.collectAsState()
+    val syncStatus by viewModel.syncStatus.collectAsState()
     var profile by remember { mutableStateOf(profileStore.loadProfile()) }
     var trackingRules by remember { mutableStateOf(profileStore.loadTrackingRules()) }
 
@@ -98,6 +97,20 @@ fun SettingsScreen(
                             profileStore.saveTrackingRules(trackingRules)
                         },
                         saveLabel = "Save Profile & Sources"
+                    )
+
+                    Button(
+                        onClick = { viewModel.syncWithSupabase(context) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.purple)
+                    ) {
+                        Text("Sync With Supabase")
+                    }
+
+                    Text(
+                        text = syncStatus,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.65f)
                     )
                 }
             }

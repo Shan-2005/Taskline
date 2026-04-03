@@ -38,6 +38,10 @@ class TaskRepository(private val taskDao: TaskDao) {
         return taskDao.getTaskById(taskId)
     }
 
+    suspend fun getAllTasksOnce(): List<TaskEntity> {
+        return taskDao.getAllTasksOnce()
+    }
+
     suspend fun deleteTaskById(taskId: Long) {
         taskDao.deleteTaskById(taskId)
     }

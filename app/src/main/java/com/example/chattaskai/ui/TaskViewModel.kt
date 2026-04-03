@@ -6,9 +6,11 @@ import androidx.lifecycle.viewModelScope
 import android.content.Context
 import com.example.chattaskai.BuildConfig
 import com.example.chattaskai.data.database.TaskEntity
+import com.example.chattaskai.data.profile.ProfileStore
 import com.example.chattaskai.reminder.ReminderManager
 import com.example.chattaskai.service.ApkUpdateInfo
 import com.example.chattaskai.service.GitHubApkUpdateChecker
+import com.example.chattaskai.service.SupabaseSyncService
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.example.chattaskai.data.repository.TaskRepository
@@ -96,6 +98,9 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
     private val _availableApkUpdate = MutableStateFlow<ApkUpdateInfo?>(null)
     val availableApkUpdate = _availableApkUpdate.asStateFlow()
 
+    private val _syncStatus = MutableStateFlow("Not synced yet")
+    val syncStatus = _syncStatus.asStateFlow()
+
     fun loadSettings(context: Context) {
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         _themeHue.value = prefs.getFloat("theme_hue", 0f)
@@ -137,6 +142,21 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
 
     fun dismissApkUpdateCard() {
         _availableApkUpdate.value = null
+    }
+
+    fun syncWithSupabase(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val profileStore = ProfileStore(context)
+            val syncService = SupabaseSyncService(repository, profileStore)
+            _syncStatus.value = "Syncing with Supabase..."
+
+            try {
+                val result = syncService.syncNow()
+                _syncStatus.value = "${result.message}: pushed ${result.pushed}, pulled ${result.pulled}"
+            } catch (e: Exception) {
+                _syncStatus.value = "Supabase sync failed: ${e.message ?: "Unknown error"}"
+            }
+        }
     }
 
     fun approveReviewTask(context: Context, task: TaskEntity) {
