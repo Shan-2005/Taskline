@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -38,11 +39,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.chattaskai.data.profile.TrackingRules
 import com.example.chattaskai.data.profile.UserProfile
 import com.example.chattaskai.ui.theme.LocalLiquidColors
+import com.example.chattaskai.util.ContactsProvider
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,7 +60,9 @@ fun ProfileSourcesForm(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalLiquidColors.current
+    val context = LocalContext.current
 
+    var phoneNumber by remember(profile.phoneNumber) { mutableStateOf(profile.phoneNumber) }
     var displayName by remember(profile.displayName) { mutableStateOf(profile.displayName) }
     var email by remember(profile.email) { mutableStateOf(profile.email) }
     var organization by remember(profile.organization) { mutableStateOf(profile.organization) }
@@ -68,10 +73,17 @@ fun ProfileSourcesForm(
     var whatsappFilters by remember(rules.whatsappFilters) { mutableStateOf(rules.whatsappFilters) }
     var messageKeywords by remember(rules.messageKeywords) { mutableStateOf(rules.messageKeywords) }
     var whatsappSelectorExpanded by remember { mutableStateOf(false) }
+    var deviceContacts by remember { mutableStateOf<List<String>>(emptyList()) }
 
-    LaunchedEffect(displayName, email, organization, trackWhatsApp, trackGmail, trackOutlook, gmailFilters, whatsappFilters, messageKeywords) {
+    LaunchedEffect(Unit) {
+        val contacts = ContactsProvider.getPhoneContacts(context).map { it.name }
+        deviceContacts = contacts
+    }
+
+    LaunchedEffect(phoneNumber, displayName, email, organization, trackWhatsApp, trackGmail, trackOutlook, gmailFilters, whatsappFilters, messageKeywords) {
         onProfileChange(
             profile.copy(
+                phoneNumber = phoneNumber,
                 displayName = displayName,
                 email = email,
                 organization = organization
@@ -99,6 +111,13 @@ fun ProfileSourcesForm(
             description = "This local profile will later become the cloud account identity for mobile and desktop sync."
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = phoneNumber,
+                    onValueChange = { phoneNumber = it },
+                    label = { Text("Mobile Number") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
                 OutlinedTextField(
                     value = displayName,
                     onValueChange = { displayName = it },
@@ -166,8 +185,59 @@ fun ProfileSourcesForm(
         TrackingFieldCard(
             title = "WhatsApp Filters",
             icon = Icons.Default.CheckCircle,
-            description = "Enter group names, contact names, or message keywords you want to track."
+            description = "Select device contacts, detected groups, or enter group names manually."
         ) {
+            // Device Contacts Picker
+            var deviceSelectorExpanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = deviceSelectorExpanded,
+                onExpandedChange = { deviceSelectorExpanded = !deviceSelectorExpanded }
+            ) {
+                OutlinedTextField(
+                    value = "Select device contacts",
+                    onValueChange = {},
+                    readOnly = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(),
+                    label = { Text("Device contacts") },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = deviceSelectorExpanded)
+                    }
+                )
+
+                ExposedDropdownMenu(
+                    expanded = deviceSelectorExpanded,
+                    onDismissRequest = { deviceSelectorExpanded = false }
+                ) {
+                    if (deviceContacts.isEmpty()) {
+                        DropdownMenuItem(
+                            text = { Text("No contacts found (check READ_CONTACTS permission)") },
+                            onClick = { deviceSelectorExpanded = false }
+                        )
+                    } else {
+                        deviceContacts.forEach { contact ->
+                            val selected = parseFilterValues(whatsappFilters).any { it.equals(contact, ignoreCase = true) }
+                            DropdownMenuItem(
+                                text = { Text(contact) },
+                                onClick = {
+                                    whatsappFilters = toggleFilterValue(whatsappFilters, contact)
+                                },
+                                trailingIcon = {
+                                    androidx.compose.material3.Checkbox(
+                                        checked = selected,
+                                        onCheckedChange = null
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Detected WhatsApp sources dropdown
             ExposedDropdownMenuBox(
                 expanded = whatsappSelectorExpanded,
                 onExpandedChange = { whatsappSelectorExpanded = !whatsappSelectorExpanded }
@@ -179,7 +249,7 @@ fun ProfileSourcesForm(
                     modifier = Modifier
                         .fillMaxWidth()
                         .menuAnchor(),
-                    label = { Text("Select detected contacts/groups") },
+                    label = { Text("Detected WhatsApp contacts/groups") },
                     trailingIcon = {
                         ExposedDropdownMenuDefaults.TrailingIcon(expanded = whatsappSelectorExpanded)
                     }
@@ -214,12 +284,15 @@ fun ProfileSourcesForm(
                 }
             }
 
+            Spacer(modifier = Modifier.height(8.dp))
+
             OutlinedTextField(
                 value = whatsappFilters,
                 onValueChange = { whatsappFilters = it },
                 modifier = Modifier.fillMaxWidth(),
                 minLines = 3,
                 maxLines = 5,
+                label = { Text("Manual WhatsApp filter") },
                 placeholder = { Text("Project Team, Family, Client A") }
             )
         }

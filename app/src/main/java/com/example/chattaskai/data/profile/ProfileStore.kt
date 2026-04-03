@@ -13,22 +13,26 @@ class ProfileStore(context: Context) {
         return runCatching {
             val obj = JSONObject(json)
             UserProfile(
+                phoneNumber = obj.optString("phoneNumber", ""),
                 displayName = obj.optString("displayName", "Taskline User"),
                 email = obj.optString("email", ""),
                 organization = obj.optString("organization", ""),
+                registrationComplete = profilePrefs.getBoolean(KEY_REGISTRATION_COMPLETE, false),
                 onboardingComplete = profilePrefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
             )
-        }.getOrElse { UserProfile(onboardingComplete = profilePrefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)) }
+        }.getOrElse { UserProfile(registrationComplete = profilePrefs.getBoolean(KEY_REGISTRATION_COMPLETE, false), onboardingComplete = profilePrefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)) }
     }
 
     fun saveProfile(profile: UserProfile) {
         val json = JSONObject().apply {
+            put("phoneNumber", profile.phoneNumber)
             put("displayName", profile.displayName)
             put("email", profile.email)
             put("organization", profile.organization)
         }
         profilePrefs.edit()
             .putString(KEY_PROFILE, json.toString())
+            .putBoolean(KEY_REGISTRATION_COMPLETE, profile.registrationComplete)
             .putBoolean(KEY_ONBOARDING_COMPLETE, profile.onboardingComplete)
             .apply()
     }
@@ -65,6 +69,16 @@ class ProfileStore(context: Context) {
     }
 
     fun isOnboardingComplete(): Boolean = profilePrefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
+
+    fun isRegistrationComplete(): Boolean = profilePrefs.getBoolean(KEY_REGISTRATION_COMPLETE, false)
+
+    fun setRegistrationComplete(phoneNumber: String) {
+        profilePrefs.edit()
+            .putBoolean(KEY_REGISTRATION_COMPLETE, true)
+            .apply()
+        val profile = loadProfile()
+        saveProfile(profile.copy(phoneNumber = phoneNumber, registrationComplete = true))
+    }
 
     fun addKnownWhatsAppSource(source: String) {
         val normalized = source.trim()
@@ -109,6 +123,7 @@ class ProfileStore(context: Context) {
         private const val KNOWN_SOURCES_PREFS = "taskline_known_sources"
         private const val KEY_PROFILE = "profile_json"
         private const val KEY_TRACKING = "tracking_json"
+        private const val KEY_REGISTRATION_COMPLETE = "registration_complete"
         private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
         private const val KEY_WHATSAPP_SOURCES = "known_whatsapp_sources"
     }

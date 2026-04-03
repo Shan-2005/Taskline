@@ -36,7 +36,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.chattaskai.data.profile.ProfileStore
-import com.example.chattaskai.ui.components.ProfileSourcesForm
 import com.example.chattaskai.ui.components.LiquidBackground
 import com.example.chattaskai.ui.theme.LocalLiquidColors
 import com.example.chattaskai.ui.theme.FontLoader
@@ -50,8 +49,9 @@ fun OnboardingScreen(
     val store = remember { ProfileStore(context) }
 
     var profile by remember { mutableStateOf(store.loadProfile()) }
-    var rules by remember { mutableStateOf(store.loadTrackingRules()) }
-    val knownWhatsAppSources by remember { mutableStateOf(store.getKnownWhatsAppSources()) }
+    var displayName by remember { mutableStateOf(profile.displayName) }
+    var email by remember { mutableStateOf(profile.email) }
+    var organization by remember { mutableStateOf(profile.organization) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LiquidBackground()
@@ -72,7 +72,7 @@ fun OnboardingScreen(
                 )
             )
             Text(
-                text = "Set up your profile, choose what to track, and start turning messages into tasks.",
+                text = "Set up your profile to get started.",
                 color = Color.White.copy(alpha = 0.75f),
                 style = MaterialTheme.typography.bodyLarge
             )
@@ -84,28 +84,82 @@ fun OnboardingScreen(
                 border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.08f))
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OnboardingPoint(Icons.Default.Person, "Create your profile", "Add your name and email so Taskline can identify your account later.")
-                    OnboardingPoint(Icons.Default.Email, "Choose sources", "Pick which apps can create tasks: WhatsApp, Gmail, or Outlook.")
-                    OnboardingPoint(Icons.Default.CheckCircle, "Link rules", "Add specific Gmail accounts, WhatsApp groups, contacts, or keywords to track.")
-                    OnboardingPoint(Icons.Default.CheckCircle, "Review before adding", "Weak matches go to a review queue instead of silently entering your task list.")
+                    OnboardingPoint(Icons.Default.Person, "Complete your profile", "Add your name, email, and organization.")
+                    OnboardingPoint(Icons.Default.Email, "Configure in Settings", "Set up WhatsApp contacts, Gmail accounts, and keywords to track.")
+                    OnboardingPoint(Icons.Default.CheckCircle, "Review & add tasks", "Check the review queue for weak matches before they become tasks.")
                 }
             }
 
-            ProfileSourcesForm(
-                profile = profile,
-                rules = rules,
-                knownWhatsAppSources = knownWhatsAppSources,
-                onProfileChange = { profile = it },
-                onRulesChange = { rules = it },
-                onSave = {
-                    store.saveProfile(profile.copy(onboardingComplete = true))
-                    store.saveTrackingRules(rules)
-                    store.setOnboardingComplete(true)
+            // Profile fields
+            androidx.compose.material3.OutlinedTextField(
+                value = displayName,
+                onValueChange = { displayName = it },
+                label = { Text("Display Name", color = Color.White.copy(alpha = 0.6f)) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.02f),
+                    focusedContainerColor = Color.White.copy(alpha = 0.05f),
+                    unfocusedTextColor = Color.White,
+                    focusedTextColor = Color.White,
+                    cursorColor = colors.cyan,
+                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                    focusedBorderColor = colors.cyan
+                )
+            )
+
+            androidx.compose.material3.OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Email", color = Color.White.copy(alpha = 0.6f)) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.02f),
+                    focusedContainerColor = Color.White.copy(alpha = 0.05f),
+                    unfocusedTextColor = Color.White,
+                    focusedTextColor = Color.White,
+                    cursorColor = colors.cyan,
+                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                    focusedBorderColor = colors.cyan
+                )
+            )
+
+            androidx.compose.material3.OutlinedTextField(
+                value = organization,
+                onValueChange = { organization = it },
+                label = { Text("Organization (Optional)", color = Color.White.copy(alpha = 0.6f)) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = Color.White.copy(alpha = 0.02f),
+                    focusedContainerColor = Color.White.copy(alpha = 0.05f),
+                    unfocusedTextColor = Color.White,
+                    focusedTextColor = Color.White,
+                    cursorColor = colors.cyan,
+                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                    focusedBorderColor = colors.cyan
+                )
+            )
+
+            // Finish button
+            Button(
+                onClick = {
+                    val updated = profile.copy(
+                        displayName = displayName,
+                        email = email,
+                        organization = organization,
+                        onboardingComplete = true
+                    )
+                    store.saveProfile(updated)
                     onFinished()
                 },
-                saveLabel = "Finish Setup",
-                modifier = Modifier.fillMaxWidth()
-            )
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = colors.cyan)
+            ) {
+                Text("Continue to Dashboard", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
         }
     }
 }

@@ -1,9 +1,11 @@
 package com.example.chattaskai.data.profile
 
 data class UserProfile(
+    val phoneNumber: String = "",
     val displayName: String = "Taskline User",
     val email: String = "",
     val organization: String = "",
+    val registrationComplete: Boolean = false,
     val onboardingComplete: Boolean = false
 )
 

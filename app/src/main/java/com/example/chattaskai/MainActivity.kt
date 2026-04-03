@@ -27,6 +27,7 @@ import com.example.chattaskai.ui.TaskViewModel
 import com.example.chattaskai.ui.TaskViewModelFactory
 import com.example.chattaskai.ui.screens.DashboardScreen
 import com.example.chattaskai.ui.screens.OnboardingScreen
+import com.example.chattaskai.ui.screens.RegistrationScreen
 import com.example.chattaskai.ui.theme.TasklineTheme
 import com.example.chattaskai.ui.theme.buildTypography
 import androidx.navigation.NavType
@@ -45,7 +46,11 @@ class MainActivity : ComponentActivity() {
         // Final Resilient Typography Initialization
         val typography = buildTypography(this)
         val profileStore = ProfileStore(this)
-        val startDestination = if (profileStore.isOnboardingComplete()) "dashboard" else "onboarding"
+        val startDestination = when {
+            !profileStore.isRegistrationComplete() -> "registration"
+            !profileStore.isOnboardingComplete() -> "onboarding"
+            else -> "dashboard"
+        }
         
         val dao = AppDatabase.getDatabase(applicationContext).taskDao()
         val repository = TaskRepository(dao)
@@ -72,6 +77,15 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
 
                     NavHost(navController = navController, startDestination = startDestination) {
+                        composable("registration") {
+                            RegistrationScreen(
+                                onFinished = { _ ->
+                                    navController.navigate("onboarding") {
+                                        popUpTo("registration") { inclusive = true }
+                                    }
+                                }
+                            )
+                        }
                         composable("onboarding") {
                             OnboardingScreen(
                                 onFinished = {
