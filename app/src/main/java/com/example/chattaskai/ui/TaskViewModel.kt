@@ -4,8 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import android.content.Context
+import com.example.chattaskai.BuildConfig
 import com.example.chattaskai.data.database.TaskEntity
 import com.example.chattaskai.reminder.ReminderManager
+import com.example.chattaskai.service.ApkUpdateInfo
+import com.example.chattaskai.service.GitHubApkUpdateChecker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.example.chattaskai.data.repository.TaskRepository
@@ -87,6 +90,9 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
     private val _strictFiltering = MutableStateFlow(true)
     val strictFiltering = _strictFiltering.asStateFlow()
 
+    private val _availableApkUpdate = MutableStateFlow<ApkUpdateInfo?>(null)
+    val availableApkUpdate = _availableApkUpdate.asStateFlow()
+
     fun loadSettings(context: Context) {
         val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
         _themeHue.value = prefs.getFloat("theme_hue", 0f)
@@ -113,6 +119,21 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
     fun setStrictFiltering(context: Context, enabled: Boolean) {
         _strictFiltering.value = enabled
         context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().putBoolean("strict_filter", enabled).apply()
+    }
+
+    fun checkForApkUpdate(context: Context) {
+        viewModelScope.launch(Dispatchers.IO) {
+            _availableApkUpdate.value = GitHubApkUpdateChecker.findAvailableUpdate(
+                context = context,
+                repoOwner = BuildConfig.APK_UPDATE_REPO_OWNER,
+                repoName = BuildConfig.APK_UPDATE_REPO_NAME,
+                assetPrefix = BuildConfig.APK_UPDATE_ASSET_PREFIX
+            )
+        }
+    }
+
+    fun dismissApkUpdateCard() {
+        _availableApkUpdate.value = null
     }
 
 
