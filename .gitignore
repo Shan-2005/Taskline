@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Signing and secret artifacts
+app/release.jks
+github-secrets.txt

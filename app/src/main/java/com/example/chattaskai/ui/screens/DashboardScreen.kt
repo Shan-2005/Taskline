@@ -39,6 +39,7 @@ import com.example.chattaskai.ui.TaskViewModel
 import android.provider.Settings
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -50,7 +51,12 @@ fun DashboardScreen(
     val pendingTasks by viewModel.pendingTasks.collectAsState()
     val completedTasks by viewModel.completedTasks.collectAsState()
     val dailyQuote by viewModel.dailyQuote.collectAsState()
+    val availableApkUpdate by viewModel.availableApkUpdate.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    LaunchedEffect(Unit) {
+        viewModel.checkForApkUpdate(context)
+    }
     
     // Permission Check
     var isServiceEnabled by remember { mutableStateOf(isNotificationServiceEnabled(context)) }
@@ -238,6 +244,22 @@ fun DashboardScreen(
                     }
                 }
 
+                if (availableApkUpdate != null) {
+                    item {
+                        ApkUpdateCard(
+                            latestVersionName = availableApkUpdate?.latestVersionName ?: "",
+                            latestVersionCode = availableApkUpdate?.latestVersionCode ?: 0L,
+                            releaseNotes = availableApkUpdate?.releaseNotes.orEmpty(),
+                            onUpdateClick = {
+                                val downloadUri = Uri.parse(availableApkUpdate?.downloadUrl ?: return@ApkUpdateCard)
+                                val browserIntent = Intent(Intent.ACTION_VIEW, downloadUri)
+                                context.startActivity(browserIntent)
+                            },
+                            onDismiss = { viewModel.dismissApkUpdateCard() }
+                        )
+                    }
+                }
+
                 // Stats Row Item
                 item {
                     Row(
@@ -385,6 +407,53 @@ fun SetupRequiredCard(
                 colors = ButtonDefaults.buttonColors(containerColor = colors.cyan.copy(alpha = 0.2f), contentColor = colors.cyan)
             ) {
                 Text(buttonText, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
+
+@Composable
+fun ApkUpdateCard(
+    latestVersionName: String,
+    latestVersionCode: Long,
+    releaseNotes: String,
+    onUpdateClick: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val colors = LocalLiquidColors.current
+    val trimmedNotes = releaseNotes.trim().ifBlank { "A newer build is available for download." }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth(),
+        color = Color.White.copy(alpha = 0.07f),
+        shape = RoundedCornerShape(20.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, colors.purple.copy(alpha = 0.35f))
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "Update available: $latestVersionName (vc$latestVersionCode)",
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White
+            )
+            Text(
+                text = trimmedNotes,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.8f)
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = onUpdateClick,
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.purple)
+                ) {
+                    Text("Download APK")
+                }
+                OutlinedButton(onClick = onDismiss) {
+                    Text("Later")
+                }
             }
         }
     }

@@ -1,0 +1,88 @@
+name: Release APK
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag to release (example: v1.2.0)"
+        required: true
+        type: string
+      version_code:
+        description: "Android versionCode (must be higher than previous)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve release metadata
+        id: meta
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG_NAME="${{ github.event.inputs.tag_name }}"
+            VERSION_CODE="${{ github.event.inputs.version_code }}"
+          else
+            TAG_NAME="${GITHUB_REF_NAME}"
+            VERSION_CODE="${GITHUB_RUN_NUMBER}"
+          fi
+
+          VERSION_NAME="${TAG_NAME#v}"
+          APK_NAME="Taskline-vc${VERSION_CODE}.apk"
+
+          echo "tag_name=${TAG_NAME}" >> "$GITHUB_OUTPUT"
+          echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
+          echo "version_code=${VERSION_CODE}" >> "$GITHUB_OUTPUT"
+          echo "apk_name=${APK_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+
+      - name: Decode signing keystore
+        shell: bash
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > app/release.jks
+
+      - name: Build release APK
+        env:
+          ANDROID_KEYSTORE_PATH: app/release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x ./gradlew
+          ./gradlew clean :app:assembleRelease \
+            -PVERSION_NAME=${{ steps.meta.outputs.version_name }} \
+            -PVERSION_CODE=${{ steps.meta.outputs.version_code }}
+
+      - name: Rename APK artifact
+        shell: bash
+        run: |
+          mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/${{ steps.meta.outputs.apk_name }}
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.tag_name }}
+          name: Taskline ${{ steps.meta.outputs.version_name }}
+          body: |
+            versionCode: ${{ steps.meta.outputs.version_code }}
+
+            Sideload this APK to update Taskline.
+          files: |
+            app/build/outputs/apk/release/${{ steps.meta.outputs.apk_name }}
