@@ -47,6 +47,7 @@ fun SettingsScreen(
     val syncStatus by viewModel.syncStatus.collectAsState()
     var profile by remember { mutableStateOf(profileStore.loadProfile()) }
     var trackingRules by remember { mutableStateOf(profileStore.loadTrackingRules()) }
+    var knownWhatsAppSources by remember { mutableStateOf(profileStore.getKnownWhatsAppSources()) }
 
     LaunchedEffect(Unit) {
         viewModel.loadSettings(context)
@@ -90,11 +91,13 @@ fun SettingsScreen(
                     ProfileSourcesForm(
                         profile = profile,
                         rules = trackingRules,
+                        knownWhatsAppSources = knownWhatsAppSources,
                         onProfileChange = { profile = it },
                         onRulesChange = { trackingRules = it },
                         onSave = {
                             profileStore.saveProfile(profile.copy(onboardingComplete = true))
                             profileStore.saveTrackingRules(trackingRules)
+                            knownWhatsAppSources = profileStore.getKnownWhatsAppSources()
                         },
                         saveLabel = "Save Profile & Sources"
                     )

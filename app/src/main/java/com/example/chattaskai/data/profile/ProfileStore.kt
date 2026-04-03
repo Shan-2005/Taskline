@@ -6,6 +6,7 @@ import org.json.JSONObject
 class ProfileStore(context: Context) {
     private val profilePrefs = context.getSharedPreferences(PROFILE_PREFS, Context.MODE_PRIVATE)
     private val trackingPrefs = context.getSharedPreferences(TRACKING_PREFS, Context.MODE_PRIVATE)
+    private val knownSourcesPrefs = context.getSharedPreferences(KNOWN_SOURCES_PREFS, Context.MODE_PRIVATE)
 
     fun loadProfile(): UserProfile {
         val json = profilePrefs.getString(KEY_PROFILE, null) ?: return UserProfile()
@@ -65,6 +66,22 @@ class ProfileStore(context: Context) {
 
     fun isOnboardingComplete(): Boolean = profilePrefs.getBoolean(KEY_ONBOARDING_COMPLETE, false)
 
+    fun addKnownWhatsAppSource(source: String) {
+        val normalized = source.trim()
+        if (normalized.isBlank() || normalized == "Unknown Sender") return
+
+        val current = getKnownWhatsAppSources().toMutableSet()
+        current.add(normalized)
+        knownSourcesPrefs.edit().putStringSet(KEY_WHATSAPP_SOURCES, current).apply()
+    }
+
+    fun getKnownWhatsAppSources(): List<String> {
+        val values = knownSourcesPrefs.getStringSet(KEY_WHATSAPP_SOURCES, emptySet()).orEmpty()
+        return values.map { it.trim() }
+            .filter { it.isNotBlank() }
+            .sortedBy { it.lowercase() }
+    }
+
     fun snapshot(): TrackingSnapshot {
         val rules = loadTrackingRules()
         return TrackingSnapshot(
@@ -89,8 +106,10 @@ class ProfileStore(context: Context) {
     companion object {
         private const val PROFILE_PREFS = "taskline_profile"
         private const val TRACKING_PREFS = "taskline_tracking"
+        private const val KNOWN_SOURCES_PREFS = "taskline_known_sources"
         private const val KEY_PROFILE = "profile_json"
         private const val KEY_TRACKING = "tracking_json"
         private const val KEY_ONBOARDING_COMPLETE = "onboarding_complete"
+        private const val KEY_WHATSAPP_SOURCES = "known_whatsapp_sources"
     }
 }

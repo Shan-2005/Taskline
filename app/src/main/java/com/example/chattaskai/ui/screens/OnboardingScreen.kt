@@ -51,6 +51,7 @@ fun OnboardingScreen(
 
     var profile by remember { mutableStateOf(store.loadProfile()) }
     var rules by remember { mutableStateOf(store.loadTrackingRules()) }
+    val knownWhatsAppSources by remember { mutableStateOf(store.getKnownWhatsAppSources()) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         LiquidBackground()
@@ -93,6 +94,7 @@ fun OnboardingScreen(
             ProfileSourcesForm(
                 profile = profile,
                 rules = rules,
+                knownWhatsAppSources = knownWhatsAppSources,
                 onProfileChange = { profile = it },
                 onRulesChange = { rules = it },
                 onSave = {

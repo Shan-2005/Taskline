@@ -49,6 +49,10 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 ?: extras.getString("android.title")
                 ?: "Unknown Sender"
 
+            if (packageName.contains("whatsapp")) {
+                profileStore.addKnownWhatsAppSource(title)
+            }
+
             val bodyCandidates = listOfNotNull(
                 extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString(),
                 extras.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
