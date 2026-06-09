@@ -40,8 +40,8 @@ class GeminiTaskParser(private val apiKey: String) {
             val currentTime = SimpleDateFormat("HH:mm", Locale.getDefault()).format(now.time)
             val dayOfWeek = SimpleDateFormat("EEEE", Locale.getDefault()).format(now.time)
 
-            // Using gemini-1.5-flash for general task parsing
-            val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey")
+            // Using gemini-2.5-flash for general task parsing
+            val url = URL("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=$apiKey")
             val conn = url.openConnection() as HttpURLConnection
             conn.requestMethod = "POST"
             conn.setRequestProperty("Content-Type", "application/json")

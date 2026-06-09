@@ -43,19 +43,51 @@ class LocalTaskParser {
         // 4. Extract Title 
         var titleFromLines = text.lines().firstOrNull { it.trim().isNotEmpty() && !it.contains(":") } ?: text.split(":").last().trim()
         
+        // Split text into sentences/clauses
+        val sentences = text.split(Regex("[.!?\n\r]+")).map { it.trim() }.filter { it.isNotEmpty() }
+        
+        // Find best task sentence
+        val bestSentence = sentences.firstOrNull { s ->
+            val ls = s.lowercase()
+            val hasAct = actionKeywords.any { matchesKeyword(ls, it) } || shorthandActionPhrases.any { ls.contains(it) }
+            val hasReq = requestKeywords.any { ls.contains(it) }
+            hasAct && hasReq
+        } ?: sentences.firstOrNull { s ->
+            val ls = s.lowercase()
+            val hasAct = actionKeywords.any { matchesKeyword(ls, it) } || shorthandActionPhrases.any { ls.contains(it) }
+            hasAct
+        } ?: titleFromLines
+
         // Specific check for "Role: X" or "hiring for the role of X"
         val roleRegex = Regex("(?i)role of ([^.]+)|role: ([^.]+)")
         val roleMatch = roleRegex.find(text)
         var cleanTitle = if (roleMatch != null) {
             "Apply: " + (roleMatch.groupValues[1].ifEmpty { roleMatch.groupValues[2] }).trim()
         } else {
-            titleFromLines
+            bestSentence
         }
 
-        val stopWords = listOf("remind me to", "remind me", "please", "can you", "i need to", "tomorrow", "today", "tonight", "at", "by", "on", "deadline", "deadline:")
+        val stopWords = listOf(
+            "remind me to", "remind me", "please", "can you", "could you", "need to", "have to", "must", 
+            "tomorrow", "today", "tonight", "at", "by", "on", "deadline", "deadline:", "hey", "hello",
+            "thanks", "thank you", "kindly", "make sure", "don't forget", "mark it under"
+        )
         stopWords.forEach { word ->
             cleanTitle = cleanTitle.replace(Regex("(?i)\\b$word\\b"), "").trim()
         }
+        
+        // Clean up day of week names and specific date patterns from the title to make it super clean
+        val daysOfWeek = listOf("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+        daysOfWeek.forEach { day ->
+            cleanTitle = cleanTitle.replace(Regex("(?i)\\b$day\\b"), "").trim()
+        }
+
+        // Clean up common time patterns like "10:30 am", "3:30 pm", "14:24 hr" or "14:24"
+        cleanTitle = cleanTitle.replace(Regex("(?i)\\b\\d{1,2}:\\d{2}\\s*(am|pm|hrs|hr)?\\b"), "").trim()
+        cleanTitle = cleanTitle.replace(Regex("(?i)\\b\\d{1,2}\\s*(am|pm)\\b"), "").trim()
+
+        // Clean up trailing/leading prepositions or punctuation that might be left over after cleaning
+        cleanTitle = cleanTitle.replace(Regex("(?i)\\b(at|by|on|to|for|in|of|from|with)\\b\\s*$"), "").trim()
         
         // Final cleanup of punctuation and emojis at start/end
         cleanTitle = cleanTitle.trim { !it.isLetterOrDigit() }
