@@ -95,6 +95,12 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
     private val _strictFiltering = MutableStateFlow(true)
     val strictFiltering = _strictFiltering.asStateFlow()
 
+    private val _useGeminiParser = MutableStateFlow(false)
+    val useGeminiParser = _useGeminiParser.asStateFlow()
+
+    private val _geminiApiKey = MutableStateFlow("")
+    val geminiApiKey = _geminiApiKey.asStateFlow()
+
     private val _availableApkUpdate = MutableStateFlow<ApkUpdateInfo?>(null)
     val availableApkUpdate = _availableApkUpdate.asStateFlow()
 
@@ -107,6 +113,17 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
         _morningReminderHour.value = prefs.getInt("morning_hour", 9)
         _snoozeMinutes.value = prefs.getInt("snooze_min", 10)
         _strictFiltering.value = prefs.getBoolean("strict_filter", true)
+        val defaultKey = try {
+            if (BuildConfig.GEMINI_API_KEY_B64.isNotBlank()) {
+                String(java.util.Base64.getDecoder().decode(BuildConfig.GEMINI_API_KEY_B64), Charsets.UTF_8)
+            } else ""
+        } catch (e: Exception) {
+            ""
+        }
+        _useGeminiParser.value = prefs.getBoolean("use_gemini_parser", defaultKey.isNotBlank())
+        _geminiApiKey.value = prefs.getString("gemini_api_key", "").let {
+            if (it.isNullOrBlank()) defaultKey else it
+        }
     }
 
     fun setThemeHue(context: Context, hue: Float) {
@@ -127,6 +144,16 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
     fun setStrictFiltering(context: Context, enabled: Boolean) {
         _strictFiltering.value = enabled
         context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().putBoolean("strict_filter", enabled).apply()
+    }
+
+    fun setUseGeminiParser(context: Context, enabled: Boolean) {
+        _useGeminiParser.value = enabled
+        context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().putBoolean("use_gemini_parser", enabled).apply()
+    }
+
+    fun setGeminiApiKey(context: Context, key: String) {
+        _geminiApiKey.value = key
+        context.getSharedPreferences("settings", Context.MODE_PRIVATE).edit().putString("gemini_api_key", key).apply()
     }
 
     fun checkForApkUpdate(context: Context) {

@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import com.example.chattaskai.data.database.AppDatabase
 import com.example.chattaskai.data.repository.TaskRepository
 import com.example.chattaskai.data.profile.ProfileStore
+import com.example.chattaskai.BuildConfig
 
 class WhatsAppNotificationListener : NotificationListenerService() {
 
@@ -109,6 +110,17 @@ class WhatsAppNotificationListener : NotificationListenerService() {
 
             val prefs = applicationContext.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
             val isStrict = prefs.getBoolean("strict_filter", true)
+            val defaultKey = try {
+                if (BuildConfig.GEMINI_API_KEY_B64.isNotBlank()) {
+                    String(java.util.Base64.getDecoder().decode(BuildConfig.GEMINI_API_KEY_B64), Charsets.UTF_8)
+                } else ""
+            } catch (e: Exception) {
+                ""
+            }
+            val useGemini = prefs.getBoolean("use_gemini_parser", defaultKey.isNotBlank())
+            val geminiApiKey = prefs.getString("gemini_api_key", "").let {
+                if (it.isNullOrBlank()) defaultKey else it
+            }
             val trackingSnapshot = profileStore.snapshot()
 
             if (!NotificationSourceMatcher.shouldTrack(packageName, title, normalizedText, trackingSnapshot)) {
@@ -128,9 +140,20 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             if (isValidTask) {
                 scope.launch {
                     try {
-                        val strictParsedTask = localTaskParser.parse(normalizedText, strict = isStrict)
+                        val strictParsedTask = if (useGemini && geminiApiKey.isNotBlank()) {
+                            GeminiTaskParser(geminiApiKey).parse(normalizedText, strict = isStrict)
+                                ?: localTaskParser.parse(normalizedText, strict = isStrict)
+                        } else {
+                            localTaskParser.parse(normalizedText, strict = isStrict)
+                        }
+
                         val parsedTask = strictParsedTask ?: if (isStrict && hasAction) {
-                            localTaskParser.parse(normalizedText, strict = false)
+                            if (useGemini && geminiApiKey.isNotBlank()) {
+                                GeminiTaskParser(geminiApiKey).parse(normalizedText, strict = false)
+                                    ?: localTaskParser.parse(normalizedText, strict = false)
+                            } else {
+                                localTaskParser.parse(normalizedText, strict = false)
+                            }
                         } else {
                             null
                         }

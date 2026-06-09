@@ -42,8 +42,10 @@ fun SettingsScreen(
     
     val themeHue by viewModel.themeHue.collectAsState()
     val morningHour by viewModel.morningReminderHour.collectAsState()
-    val snoozeMin by viewModel.snoozeMinutes.collectAsState()
     val strictFilter by viewModel.strictFiltering.collectAsState()
+    val snoozeMin by viewModel.snoozeMinutes.collectAsState()
+    val useGeminiParser by viewModel.useGeminiParser.collectAsState()
+    val geminiApiKey by viewModel.geminiApiKey.collectAsState()
     val syncStatus by viewModel.syncStatus.collectAsState()
     var profile by remember { mutableStateOf(profileStore.loadProfile()) }
     var trackingRules by remember { mutableStateOf(profileStore.loadTrackingRules()) }
@@ -192,27 +194,90 @@ fun SettingsScreen(
 
             // Engine Section
             SettingsGroup(title = "Intelligence Engine", icon = Icons.Default.Build) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Strict Intent Filtering", style = MaterialTheme.typography.bodyLarge, color = Color.White)
-                        Text(
-                            "When enabled, Taskline ignores casual chat and only extracts clear actionable tasks.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.5f)
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Strict Intent Filtering", style = MaterialTheme.typography.bodyLarge, color = Color.White)
+                            Text(
+                                "When enabled, Taskline ignores casual chat and only extracts clear actionable tasks.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.5f)
+                            )
+                        }
+                        Switch(
+                            checked = strictFilter,
+                            onCheckedChange = { viewModel.setStrictFiltering(context, it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = colors.cyan,
+                                checkedTrackColor = colors.cyan.copy(alpha = 0.3f)
+                            )
                         )
                     }
-                    Switch(
-                        checked = strictFilter,
-                        onCheckedChange = { viewModel.setStrictFiltering(context, it) },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = colors.cyan,
-                            checkedTrackColor = colors.cyan.copy(alpha = 0.3f)
-                        )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(Color.White.copy(alpha = 0.08f))
                     )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Use Gemini AI Parser", style = MaterialTheme.typography.bodyLarge, color = Color.White)
+                            Text(
+                                "Use Google Gemini 1.5 Flash to intelligently extract, classify, and taskify notifications.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.5f)
+                            )
+                        }
+                        Switch(
+                            checked = useGeminiParser,
+                            onCheckedChange = { viewModel.setUseGeminiParser(context, it) },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = colors.cyan,
+                                checkedTrackColor = colors.cyan.copy(alpha = 0.3f)
+                            )
+                        )
+                    }
+
+                    if (useGeminiParser) {
+                        var tempKey by remember(geminiApiKey) { mutableStateOf(geminiApiKey) }
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = tempKey,
+                                onValueChange = {
+                                    tempKey = it
+                                    viewModel.setGeminiApiKey(context, it)
+                                },
+                                label = { Text("Gemini API Key") },
+                                placeholder = { Text("AIzaSy...") },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = colors.cyan,
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                                    focusedLabelColor = colors.cyan,
+                                    unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White
+                                )
+                            )
+                            Text(
+                                "Get your key from Google AI Studio. Stored locally on your device.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.4f)
+                            )
+                        }
+                    }
                 }
             }
 

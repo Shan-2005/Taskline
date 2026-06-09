@@ -17,6 +17,7 @@ android {
     val supabaseAnonKey = providers.gradleProperty("SUPABASE_ANON_KEY").orNull ?: ""
     val supabaseTasksTable = providers.gradleProperty("SUPABASE_TASKS_TABLE").orNull ?: "tasks"
     val supabaseProfilesTable = providers.gradleProperty("SUPABASE_PROFILES_TABLE").orNull ?: "profiles"
+    val geminiApiKeyB64 = providers.gradleProperty("GEMINI_API_KEY_B64").orNull ?: ""
     val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH") ?: providers.gradleProperty("ANDROID_KEYSTORE_PATH").orNull
     val keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD") ?: providers.gradleProperty("ANDROID_KEYSTORE_PASSWORD").orNull
     val keyAlias = System.getenv("ANDROID_KEY_ALIAS") ?: providers.gradleProperty("ANDROID_KEY_ALIAS").orNull
@@ -47,6 +48,7 @@ android {
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${supabaseAnonKey.replace("\"", "\\\"")}\"")
         buildConfigField("String", "SUPABASE_TASKS_TABLE", "\"${supabaseTasksTable.replace("\"", "\\\"")}\"")
         buildConfigField("String", "SUPABASE_PROFILES_TABLE", "\"${supabaseProfilesTable.replace("\"", "\\\"")}\"")
+        buildConfigField("String", "GEMINI_API_KEY_B64", "\"${geminiApiKeyB64.replace("\"", "\\\"")}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
