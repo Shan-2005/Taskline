@@ -15,12 +15,16 @@ data class TrackingRules(
     val trackOutlook: Boolean = false,
     val gmailFilters: String = "",
     val whatsappFilters: String = "",
-    val messageKeywords: String = ""
+    val messageKeywords: String = "",
+    val whatsappFilterEnabled: Boolean = false,
+    val gmailFilterEnabled: Boolean = false
 )
 
 data class TrackingSnapshot(
     val allowedApps: Set<String>,
     val gmailFilters: List<String>,
     val whatsappFilters: List<String>,
-    val messageKeywords: List<String>
+    val messageKeywords: List<String>,
+    val whatsappFilterEnabled: Boolean,
+    val gmailFilterEnabled: Boolean
 )

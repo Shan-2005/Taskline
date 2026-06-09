@@ -47,7 +47,9 @@ class ProfileStore(context: Context) {
                 trackOutlook = obj.optBoolean("trackOutlook", false),
                 gmailFilters = obj.optString("gmailFilters", ""),
                 whatsappFilters = obj.optString("whatsappFilters", ""),
-                messageKeywords = obj.optString("messageKeywords", "")
+                messageKeywords = obj.optString("messageKeywords", ""),
+                whatsappFilterEnabled = obj.optBoolean("whatsappFilterEnabled", false),
+                gmailFilterEnabled = obj.optBoolean("gmailFilterEnabled", false)
             )
         }.getOrElse { TrackingRules() }
     }
@@ -60,6 +62,8 @@ class ProfileStore(context: Context) {
             put("gmailFilters", rules.gmailFilters)
             put("whatsappFilters", rules.whatsappFilters)
             put("messageKeywords", rules.messageKeywords)
+            put("whatsappFilterEnabled", rules.whatsappFilterEnabled)
+            put("gmailFilterEnabled", rules.gmailFilterEnabled)
         }
         trackingPrefs.edit().putString(KEY_TRACKING, json.toString()).apply()
     }
@@ -107,7 +111,9 @@ class ProfileStore(context: Context) {
             },
             gmailFilters = splitFilters(rules.gmailFilters),
             whatsappFilters = splitFilters(rules.whatsappFilters),
-            messageKeywords = splitFilters(rules.messageKeywords)
+            messageKeywords = splitFilters(rules.messageKeywords),
+            whatsappFilterEnabled = rules.whatsappFilterEnabled,
+            gmailFilterEnabled = rules.gmailFilterEnabled
         )
     }
 

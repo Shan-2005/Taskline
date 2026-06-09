@@ -40,6 +40,7 @@ import android.provider.Settings
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import java.time.LocalDate
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -54,6 +55,7 @@ fun DashboardScreen(
     val dailyQuote by viewModel.dailyQuote.collectAsState()
     val availableApkUpdate by viewModel.availableApkUpdate.collectAsState()
     val context = androidx.compose.ui.platform.LocalContext.current
+    var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.checkForApkUpdate(context)
@@ -71,6 +73,15 @@ fun DashboardScreen(
             isServiceEnabled = isNotificationServiceEnabled(context)
             hasPostPermission = PermissionChecker.hasNotificationPermission(context)
             hasAlarmPermission = PermissionChecker.hasExactAlarmPermission(context)
+        }
+    }
+
+    val displayedPendingTasks = remember(pendingTasks, selectedDate) {
+        if (selectedDate != null) {
+            val dateStr = selectedDate!!.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+            pendingTasks.filter { it.deadlineDate == dateStr }
+        } else {
+            pendingTasks
         }
     }
 
@@ -285,6 +296,16 @@ fun DashboardScreen(
                     }
                 }
 
+                // Monthly Calendar
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    MonthlyCalendar(
+                        tasks = pendingTasks,
+                        selectedDate = selectedDate,
+                        onDateSelected = { selectedDate = it }
+                    )
+                }
+
                 // Stats Row Item
                 item {
                     Row(
@@ -336,18 +357,34 @@ fun DashboardScreen(
                 // Pending Title Item
                 item {
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Pending Tasks",
-                        style = MaterialTheme.typography.headlineLarge.copy(
-                            fontFamily = FontLoader.lobster(),
-                            color = Color.White,
-                            fontSize = 32.sp
-                        ),
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (selectedDate != null) {
+                                val formatter = java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy")
+                                "Tasks for ${selectedDate!!.format(formatter)}"
+                            } else {
+                                "Pending Tasks"
+                            },
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                fontFamily = FontLoader.lobster(),
+                                color = Color.White,
+                                fontSize = 28.sp
+                            ),
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                        if (selectedDate != null) {
+                            TextButton(onClick = { selectedDate = null }) {
+                                Text("Clear Filter", color = liquidColors.cyan)
+                            }
+                        }
+                    }
                 }
 
-                if (pendingTasks.isEmpty()) {
+                if (displayedPendingTasks.isEmpty()) {
                     item {
                         Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -359,14 +396,14 @@ fun DashboardScreen(
                                 )
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Text(
-                                    "All caught up!", 
+                                    if (selectedDate != null) "No tasks for this date" else "All caught up!", 
                                     style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.4f))
                                 )
                             }
                         }
                     }
                 } else {
-                    items(pendingTasks, key = { it.id }) { task ->
+                    items(displayedPendingTasks, key = { it.id }) { task ->
                         TaskCard(
                             task = task,
                             onComplete = { viewModel.completeTask(context, task) },

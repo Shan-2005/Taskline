@@ -13,7 +13,9 @@ class NotificationSourceMatcherTest {
             allowedApps = setOf("whatsapp"),
             gmailFilters = emptyList(),
             whatsappFilters = listOf("Project Team"),
-            messageKeywords = listOf("deadline")
+            messageKeywords = listOf("deadline"),
+            whatsappFilterEnabled = true,
+            gmailFilterEnabled = false
         )
 
         val shouldTrack = NotificationSourceMatcher.shouldTrack(
@@ -32,7 +34,9 @@ class NotificationSourceMatcherTest {
             allowedApps = setOf("gmail"),
             gmailFilters = listOf("boss@company.com"),
             whatsappFilters = emptyList(),
-            messageKeywords = listOf("submit")
+            messageKeywords = listOf("submit"),
+            whatsappFilterEnabled = false,
+            gmailFilterEnabled = true
         )
 
         val shouldTrack = NotificationSourceMatcher.shouldTrack(

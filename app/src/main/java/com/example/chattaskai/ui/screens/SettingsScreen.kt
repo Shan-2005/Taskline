@@ -45,7 +45,6 @@ fun SettingsScreen(
     val strictFilter by viewModel.strictFiltering.collectAsState()
     val snoozeMin by viewModel.snoozeMinutes.collectAsState()
     val useGeminiParser by viewModel.useGeminiParser.collectAsState()
-    val geminiApiKey by viewModel.geminiApiKey.collectAsState()
     val syncStatus by viewModel.syncStatus.collectAsState()
     var profile by remember { mutableStateOf(profileStore.loadProfile()) }
     var trackingRules by remember { mutableStateOf(profileStore.loadTrackingRules()) }
@@ -246,37 +245,6 @@ fun SettingsScreen(
                                 checkedTrackColor = colors.cyan.copy(alpha = 0.3f)
                             )
                         )
-                    }
-
-                    if (useGeminiParser) {
-                        var tempKey by remember(geminiApiKey) { mutableStateOf(geminiApiKey) }
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedTextField(
-                                value = tempKey,
-                                onValueChange = {
-                                    tempKey = it
-                                    viewModel.setGeminiApiKey(context, it)
-                                },
-                                label = { Text("Gemini API Key") },
-                                placeholder = { Text("AIzaSy...") },
-                                modifier = Modifier.fillMaxWidth(),
-                                singleLine = true,
-                                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = colors.cyan,
-                                    unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                                    focusedLabelColor = colors.cyan,
-                                    unfocusedLabelColor = Color.White.copy(alpha = 0.5f),
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
-                                )
-                            )
-                            Text(
-                                "Get your key from Google AI Studio. Stored locally on your device.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = Color.White.copy(alpha = 0.4f)
-                            )
-                        }
                     }
                 }
             }

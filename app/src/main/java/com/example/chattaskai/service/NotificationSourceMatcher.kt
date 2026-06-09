@@ -21,9 +21,9 @@ object NotificationSourceMatcher {
 
         val haystack = listOf(title, body).joinToString("\n").lowercase()
         val sourceFilters = when (sourceKey) {
-            "whatsapp" -> snapshot.whatsappFilters
-            "gmail" -> snapshot.gmailFilters
-            else -> snapshot.gmailFilters
+            "whatsapp" -> if (snapshot.whatsappFilterEnabled) snapshot.whatsappFilters else emptyList()
+            "gmail" -> if (snapshot.gmailFilterEnabled) snapshot.gmailFilters else emptyList()
+            else -> if (snapshot.gmailFilterEnabled) snapshot.gmailFilters else emptyList()
         }
 
         val sourceAllowed = sourceFilters.isEmpty() || sourceFilters.any { haystack.contains(it.lowercase()) }
