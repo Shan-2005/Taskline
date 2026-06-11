@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.material.ripple.rememberRipple
@@ -1129,26 +1130,100 @@ fun AssistantChatScreen(viewModel: TaskViewModel, modifier: Modifier = Modifier)
                     .padding(16.dp)
             ) {
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(12.dp)
-                            .clip(CircleShape)
-                            .background(if (isLoading) liquidColors.purple else liquidColors.cyan)
-                    )
-                    Column {
-                        Text(
-                            text = "Taskline Assistant",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = Color.White
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(if (isLoading) liquidColors.purple else liquidColors.cyan)
                         )
-                        Text(
-                            text = if (isLoading) "Typing..." else "Online",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Color.White.copy(alpha = 0.5f)
-                        )
+                        Column {
+                            Text(
+                                text = "Taskline Assistant",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White
+                            )
+                            Text(
+                                text = if (isLoading) "Typing..." else "Online",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.5f)
+                            )
+                        }
+                    }
+
+                    // Interactive AI Status pill button
+                    val aiMode by viewModel.aiMode.collectAsState()
+                    val aiStatus by viewModel.aiStatus.collectAsState()
+                    var menuExpanded by remember { mutableStateOf(false) }
+
+                    val statusDotColor = when (aiStatus) {
+                        "Active" -> Color(0xFF4CAF50) // Green
+                        "Quota Exceeded" -> Color(0xFFFF9800) // Orange/Red
+                        else -> Color(0xFF9E9E9E) // Gray
+                    }
+
+                    val statusText = when (aiStatus) {
+                        "Active" -> "Active"
+                        "Quota Exceeded" -> "Quota Exceeded"
+                        else -> "Offline"
+                    }
+
+                    Box {
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(Color.White.copy(alpha = 0.1f))
+                                .clickable { menuExpanded = true }
+                                .padding(horizontal = 14.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(10.dp)
+                                    .clip(CircleShape)
+                                    .background(statusDotColor)
+                            )
+                            Text(
+                                text = statusText,
+                                color = Color.White,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowDown,
+                                contentDescription = "Select AI Mode",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false },
+                            modifier = Modifier.background(Color.DarkGray)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Gemini AI (Cloud)", color = Color.White) },
+                                onClick = {
+                                    viewModel.setAiMode("Cloud")
+                                    menuExpanded = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Local Offline Parser", color = Color.White) },
+                                onClick = {
+                                    viewModel.setAiMode("Offline")
+                                    menuExpanded = false
+                                }
+                            )
+                        }
                     }
                 }
             }

@@ -129,6 +129,21 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
     private val _isChatLoading = MutableStateFlow(false)
     val isChatLoading = _isChatLoading.asStateFlow()
 
+    private val _aiMode = MutableStateFlow("Cloud") // "Cloud" or "Offline"
+    val aiMode = _aiMode.asStateFlow()
+
+    private val _aiStatus = MutableStateFlow("Active") // "Active", "Quota Exceeded", "Offline"
+    val aiStatus = _aiStatus.asStateFlow()
+
+    fun setAiMode(mode: String) {
+        _aiMode.value = mode
+        if (mode == "Offline") {
+            _aiStatus.value = "Offline"
+        } else {
+            _aiStatus.value = "Active"
+        }
+    }
+
     fun dismissLevelUpAlert() {
         _levelUpAlert.value = null
     }
@@ -147,8 +162,16 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
             ""
         }
         _useGeminiParser.value = prefs.getBoolean("use_gemini_parser", defaultKey.isNotBlank())
-        _geminiApiKey.value = prefs.getString("gemini_api_key", "").let {
+        val resolvedKey = prefs.getString("gemini_api_key", "").let {
             if (it.isNullOrBlank()) defaultKey else it
+        }
+        _geminiApiKey.value = resolvedKey
+        if (resolvedKey.isBlank()) {
+            _aiMode.value = "Offline"
+            _aiStatus.value = "Offline"
+        } else {
+            _aiMode.value = "Cloud"
+            _aiStatus.value = "Active"
         }
         
         // Load productivity stats
@@ -355,19 +378,39 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
                 """.trimIndent()
                 
                 val response = callGeminiApi(systemPrompt, text)
-                val (conversationalReply, jsonCommand) = extractJsonCommand(response)
                 
-                withContext(Dispatchers.Main) {
-                    _chatMessages.value = _chatMessages.value + ChatMessage("Taskline AI", conversationalReply)
-                }
-                
-                if (jsonCommand != null) {
-                    executeAiCommand(context, jsonCommand)
+                if (response.startsWith("Error") || response.startsWith("Failed") || response.startsWith("Please configure") || response.contains("exhausted")) {
+                    val fallback = attemptLocalFallback(text, tasks)
+                    withContext(Dispatchers.Main) {
+                        _chatMessages.value = _chatMessages.value + ChatMessage("Taskline AI (Offline Mode)", fallback.first)
+                    }
+                    if (fallback.second != null) {
+                        executeAiCommand(context, fallback.second!!)
+                    }
+                } else {
+                    val (conversationalReply, jsonCommand) = extractJsonCommand(response)
+                    withContext(Dispatchers.Main) {
+                        _chatMessages.value = _chatMessages.value + ChatMessage("Taskline AI", conversationalReply)
+                    }
+                    if (jsonCommand != null) {
+                        executeAiCommand(context, jsonCommand)
+                    }
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                withContext(Dispatchers.Main) {
-                    _chatMessages.value = _chatMessages.value + ChatMessage("Taskline AI", "Sorry, I encountered an error: ${e.localizedMessage ?: "Unknown error"}")
+                try {
+                    val tasks = repository.getAllTasksOnce()
+                    val fallback = attemptLocalFallback(text, tasks)
+                    withContext(Dispatchers.Main) {
+                        _chatMessages.value = _chatMessages.value + ChatMessage("Taskline AI (Offline Mode)", fallback.first)
+                    }
+                    if (fallback.second != null) {
+                        executeAiCommand(context, fallback.second!!)
+                    }
+                } catch (ex: Exception) {
+                    withContext(Dispatchers.Main) {
+                        _chatMessages.value = _chatMessages.value + ChatMessage("Taskline AI", "Sorry, I encountered an error: ${e.localizedMessage ?: "Unknown error"}")
+                    }
                 }
             } finally {
                 _isChatLoading.value = false
@@ -513,6 +556,109 @@ class TaskViewModel(private val repository: TaskRepository) : ViewModel() {
                 deleteTask(context, taskId)
             }
         }
+    }
+
+    private fun attemptLocalFallback(text: String, tasks: List<TaskEntity>): Pair<String, org.json.JSONObject?> {
+        val trimmed = text.trim().lowercase()
+        val todayDate = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+        
+        // ADD command detection
+        if (trimmed.startsWith("add ") || trimmed.startsWith("create ") || trimmed.startsWith("new ")) {
+            var rawTitle = text
+            val commandWords = listOf("add", "create", "new task", "new")
+            for (word in commandWords) {
+                if (rawTitle.lowercase().startsWith("$word ")) {
+                    rawTitle = rawTitle.substring(word.length + 1).trim()
+                }
+            }
+            
+            // Extract priority
+            var priority = "medium"
+            if (rawTitle.lowercase().contains("priority high") || rawTitle.lowercase().contains("high priority")) {
+                priority = "high"
+                rawTitle = rawTitle.replace("priority high", "", ignoreCase = true).replace("high priority", "", ignoreCase = true).trim()
+            } else if (rawTitle.lowercase().contains("priority low") || rawTitle.lowercase().contains("low priority")) {
+                priority = "low"
+                rawTitle = rawTitle.replace("priority low", "", ignoreCase = true).replace("low priority", "", ignoreCase = true).trim()
+            } else if (rawTitle.lowercase().contains("priority medium") || rawTitle.lowercase().contains("medium priority")) {
+                priority = "medium"
+                rawTitle = rawTitle.replace("priority medium", "", ignoreCase = true).replace("medium priority", "", ignoreCase = true).trim()
+            }
+            
+            // Extract category
+            var category = "General"
+            val categories = listOf("Work", "Personal", "Shopping", "Health")
+            for (cat in categories) {
+                if (rawTitle.lowercase().contains("category ${cat.lowercase()}") || rawTitle.lowercase().contains("${cat.lowercase()} category")) {
+                    category = cat
+                    rawTitle = rawTitle.replace("category ${cat.lowercase()}", "", ignoreCase = true).replace("${cat.lowercase()} category", "", ignoreCase = true).trim()
+                } else if (rawTitle.lowercase().contains("in ${cat.lowercase()}")) {
+                    category = cat
+                    rawTitle = rawTitle.replace("in ${cat.lowercase()}", "", ignoreCase = true).trim()
+                }
+            }
+            
+            val json = org.json.JSONObject().apply {
+                put("command", "add")
+                put("title", rawTitle.ifBlank { "New Task via Assistant" })
+                put("date", todayDate)
+                put("time", "12:00")
+                put("priority", priority)
+                put("category", category)
+            }
+            return Pair("I've added the task \"${rawTitle}\" in $category category with $priority priority (Offline Fallback).", json)
+        }
+        
+        // COMPLETE command detection
+        if (trimmed.startsWith("complete ") || trimmed.startsWith("finish ") || trimmed.startsWith("done ") || trimmed.startsWith("check ")) {
+            var target = trimmed.substringAfter("complete ").substringAfter("finish ").substringAfter("done ").substringAfter("check ").trim()
+            // Try matching ID
+            val matchedById = target.toLongOrNull()?.let { id -> tasks.find { it.id == id && it.status == "pending" } }
+            if (matchedById != null) {
+                val json = org.json.JSONObject().apply {
+                    put("command", "complete")
+                    put("taskId", matchedById.id)
+                }
+                return Pair("I have completed the task \"${matchedById.title}\" (Offline Fallback).", json)
+            }
+            
+            // Match by title substring
+            val matchedByTitle = tasks.filter { it.status == "pending" }.find { it.title.lowercase().contains(target) }
+            if (matchedByTitle != null) {
+                val json = org.json.JSONObject().apply {
+                    put("command", "complete")
+                    put("taskId", matchedByTitle.id)
+                }
+                return Pair("I have completed the task \"${matchedByTitle.title}\" (Offline Fallback).", json)
+            }
+            return Pair("Could not find a pending task matching \"$target\" to complete (Offline Fallback).", null)
+        }
+        
+        // DELETE command detection
+        if (trimmed.startsWith("delete ") || trimmed.startsWith("remove ") || trimmed.startsWith("cancel ")) {
+            var target = trimmed.substringAfter("delete ").substringAfter("remove ").substringAfter("cancel ").trim()
+            val matchedById = target.toLongOrNull()?.let { id -> tasks.find { it.id == id && it.status == "pending" } }
+            if (matchedById != null) {
+                val json = org.json.JSONObject().apply {
+                    put("command", "delete")
+                    put("taskId", matchedById.id)
+                }
+                return Pair("I have deleted the task \"${matchedById.title}\" (Offline Fallback).", json)
+            }
+            
+            val matchedByTitle = tasks.filter { it.status == "pending" }.find { it.title.lowercase().contains(target) }
+            if (matchedByTitle != null) {
+                val json = org.json.JSONObject().apply {
+                    put("command", "delete")
+                    put("taskId", matchedByTitle.id)
+                }
+                return Pair("I have deleted the task \"${matchedByTitle.title}\" (Offline Fallback).", json)
+            }
+            return Pair("Could not find a pending task matching \"$target\" to delete (Offline Fallback).", null)
+        }
+        
+        // Generic help response
+        return Pair("Gemini API quota exceeded or unavailable. In offline mode, you can type:\n- \"add [task title]\"\n- \"complete [task title or ID]\"\n- \"delete [task title or ID]\"", null)
     }
 
     fun upsertTask(context: Context, task: TaskEntity) {
