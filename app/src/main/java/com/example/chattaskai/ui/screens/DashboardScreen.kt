@@ -1,21 +1,30 @@
 package com.example.chattaskai.ui.screens
 
 import androidx.compose.animation.*
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 // Using standard icons only
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -88,6 +97,9 @@ fun DashboardScreen(
     var showAddTaskDialog by remember { mutableStateOf(false) }
     
     val liquidColors = LocalLiquidColors.current
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp
+    val isTablet = screenWidth >= 600
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -109,310 +121,109 @@ fun DashboardScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             LiquidBackground()
             
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 80.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Header & Quote Item
-                item {
+            if (isTablet) {
+                // Two-column split layout for tablet/landscape
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding)
+                        .padding(horizontal = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    // Left Column: Header, Quote, Calendar, Stats
                     Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .statusBarsPadding()
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState())
                             .padding(vertical = 16.dp)
+                            .padding(bottom = 80.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = "Taskline",
-                                    style = MaterialTheme.typography.displayLarge.copy(
-                                        fontFamily = FontLoader.lobster(),
-                                        color = Color.White,
-                                        fontSize = 42.sp
-                                    )
-                                )
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = "Liquid Glass Edition",
-                                        style = MaterialTheme.typography.labelMedium.copy(
-                                            fontFamily = FontLoader.ndot(),
-                                            color = Color.White.copy(alpha = 0.7f),
-                                            letterSpacing = 1.sp
-                                        )
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text("✦", color = liquidColors.purple, fontSize = 14.sp)
-                                }
-                            }
-                            
-                            IconButton(
-                                onClick = onSettingsClick,
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .background(Color.White.copy(alpha = 0.05f), CircleShape)
-                                    .border(1.dp, Color.White.copy(alpha = 0.1f), CircleShape)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Settings,
-                                    contentDescription = "Theme",
-                                    tint = Color.White.copy(alpha = 0.7f),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                        DashboardHeader(liquidColors = liquidColors, onSettingsClick = onSettingsClick)
+                        
+                        QuoteCard(dailyQuote = dailyQuote, liquidColors = liquidColors)
+                        
+                        MonthlyCalendar(
+                            tasks = pendingTasks,
+                            selectedDate = selectedDate,
+                            onDateSelected = { selectedDate = it }
+                        )
+                        
+                        StatsRow(pendingTasks = pendingTasks, completedTasks = completedTasks, liquidColors = liquidColors)
+                    }
+                    
+                    // Right Column: Notifications, Reviews, and Tasks list
+                    LazyColumn(
+                        modifier = Modifier
+                            .weight(1.2f)
+                            .fillMaxHeight(),
+                        contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        setupRequiredSection(context, isServiceEnabled, hasPostPermission, hasAlarmPermission)
+                        
+                        apkUpdateSection(availableApkUpdate, context, viewModel)
+                        
+                        needsReviewSection(reviewTasks, viewModel, context, onTaskClick)
+                        
+                        item {
+                            PendingTasksHeader(selectedDate = selectedDate, liquidColors = liquidColors, onClearFilter = { selectedDate = null })
                         }
                         
-                        Spacer(modifier = Modifier.height(24.dp))
-                        
-                        // Quote Card
-                        Box(
+                        pendingTasksSection(displayedPendingTasks, selectedDate, viewModel, context, onTaskClick)
+                    }
+                }
+            } else {
+                // Original single-column phone layout
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 80.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    item {
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .glassMorphism(alpha = 0.15f, baseColor = Color.Black)
-                                .padding(24.dp)
+                                .statusBarsPadding()
+                                .padding(vertical = 16.dp)
                         ) {
-                            // Subtle Glow
-                            Box(
-                                modifier = Modifier
-                                    .size(120.dp)
-                                    .align(Alignment.CenterEnd)
-                                    .offset(x = 40.dp, y = (-20).dp)
-                                    .background(
-                                        Brush.radialGradient(
-                                            colors = listOf(liquidColors.purple.copy(alpha = 0.3f), Color.Transparent)
-                                        )
-                                    )
-                            )
-                            
-                            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                Text(
-                                    "“",
-                                    color = liquidColors.purple,
-                                    fontSize = 48.sp,
-                                    fontFamily = FontLoader.lobster(),
-                                    lineHeight = 24.sp
-                                )
-                                Text(
-                                    dailyQuote.text,
-                                    style = MaterialTheme.typography.headlineSmall.copy(
-                                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                                        fontWeight = FontWeight.Normal,
-                                        color = Color.White.copy(alpha = 0.9f),
-                                        lineHeight = 30.sp
-                                    )
-                                )
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Box(modifier = Modifier.width(20.dp).height(1.dp).background(liquidColors.purple.copy(alpha = 0.5f)))
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
-                                        dailyQuote.author.uppercase(),
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontFamily = FontLoader.ndot(),
-                                            color = liquidColors.purple,
-                                            letterSpacing = 2.sp
-                                        )
-                                    )
-                                }
-                            }
+                            DashboardHeader(liquidColors = liquidColors, onSettingsClick = onSettingsClick)
+                            Spacer(modifier = Modifier.height(24.dp))
+                            QuoteCard(dailyQuote = dailyQuote, liquidColors = liquidColors)
                         }
                     }
-                } // End Header Item
-
-                if (!isServiceEnabled) {
-                    item {
-                        SetupRequiredCard(
-                            title = "Action Required",
-                            description = "Enable Notification Access to start fetching tasks automatically from WhatsApp.",
-                            buttonText = "Enable Access",
-                            icon = Icons.Default.Settings,
-                            onActionClick = { context.startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) }
-                        )
-                    }
-                } else if (!hasPostPermission) {
-                    item {
-                        SetupRequiredCard(
-                            title = "Notifications Restricted",
-                            description = "Please allow notification permission to receive your task reminders.",
-                            buttonText = "Allow Notifications",
-                            icon = Icons.Default.CheckCircle,
-                            onActionClick = { PermissionChecker.openNotificationSettings(context) }
-                        )
-                    }
-                } else if (!hasAlarmPermission) {
-                    item {
-                        SetupRequiredCard(
-                            title = "Exact Alarms Blocked",
-                            description = "The app needs permission to trigger precise alarms for your deadlines.",
-                            buttonText = "Enable Exact Alarms",
-                            icon = Icons.Default.DateRange,
-                            onActionClick = { PermissionChecker.openExactAlarmSettings(context) }
-                        )
-                    }
-                }
-
-                if (availableApkUpdate != null) {
-                    item {
-                        ApkUpdateCard(
-                            latestVersionName = availableApkUpdate?.latestVersionName ?: "",
-                            latestVersionCode = availableApkUpdate?.latestVersionCode ?: 0L,
-                            releaseNotes = availableApkUpdate?.releaseNotes.orEmpty(),
-                            onUpdateClick = {
-                                val downloadUri = Uri.parse(availableApkUpdate?.downloadUrl ?: return@ApkUpdateCard)
-                                val browserIntent = Intent(Intent.ACTION_VIEW, downloadUri)
-                                context.startActivity(browserIntent)
-                            },
-                            onDismiss = { viewModel.dismissApkUpdateCard() }
-                        )
-                    }
-                }
-
-                if (reviewTasks.isNotEmpty()) {
+                    
+                    setupRequiredSection(context, isServiceEnabled, hasPostPermission, hasAlarmPermission)
+                    
+                    apkUpdateSection(availableApkUpdate, context, viewModel)
+                    
+                    needsReviewSection(reviewTasks, viewModel, context, onTaskClick)
+                    
                     item {
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Needs Review",
-                            style = MaterialTheme.typography.headlineLarge.copy(
-                                fontFamily = FontLoader.lobster(),
-                                color = Color.White,
-                                fontSize = 28.sp
-                            ),
-                            modifier = Modifier.padding(bottom = 4.dp)
+                        MonthlyCalendar(
+                            tasks = pendingTasks,
+                            selectedDate = selectedDate,
+                            onDateSelected = { selectedDate = it }
                         )
                     }
-
-                    items(reviewTasks, key = { it.id }) { task ->
-                        ReviewTaskCard(
-                            task = task,
-                            onApprove = { viewModel.approveReviewTask(context, task) },
-                            onDismiss = { viewModel.dismissReviewTask(context, task) },
-                            onClick = { onTaskClick(task.id) }
-                        )
-                    }
-                }
-
-                // Monthly Calendar
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    MonthlyCalendar(
-                        tasks = pendingTasks,
-                        selectedDate = selectedDate,
-                        onDateSelected = { selectedDate = it }
-                    )
-                }
-
-                // Stats Row Item
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        val pendingCount = pendingTasks.size.toString().padStart(2, '0')
-                        val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
-                        val dueTodayCount = pendingTasks.count { it.deadlineDate == todayStr }.toString().padStart(2, '0')
-                        val doneCount = completedTasks.size.toString().padStart(2, '0')
-
-                        val stats = listOf(
-                            Triple(pendingCount, "PENDING", liquidColors.purple),
-                            Triple(dueTodayCount, "DUE\nTODAY", liquidColors.purple),
-                            Triple(doneCount, "DONE", Color.White.copy(alpha = 0.3f))
-                        )
-                        
-                        stats.forEach { (count, label, color) ->
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .aspectRatio(1f)
-                                    .glassMorphism(alpha = 0.05f)
-                                    .padding(16.dp)
-                            ) {
-                                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text(
-                                        count,
-                                        color = color,
-                                        style = MaterialTheme.typography.headlineMedium.copy(
-                                            fontFamily = FontLoader.ndot(),
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    )
-                                    Text(
-                                        label,
-                                        color = Color.White.copy(alpha = 0.4f),
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontFamily = FontLoader.ndot(),
-                                            lineHeight = 14.sp
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Pending Title Item
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (selectedDate != null) {
-                                val formatter = java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy")
-                                "Tasks for ${selectedDate!!.format(formatter)}"
-                            } else {
-                                "Pending Tasks"
-                            },
-                            style = MaterialTheme.typography.headlineLarge.copy(
-                                fontFamily = FontLoader.lobster(),
-                                color = Color.White,
-                                fontSize = 28.sp
-                            ),
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                        if (selectedDate != null) {
-                            TextButton(onClick = { selectedDate = null }) {
-                                Text("Clear Filter", color = liquidColors.cyan)
-                            }
-                        }
-                    }
-                }
-
-                if (displayedPendingTasks.isEmpty()) {
+                    
                     item {
-                        Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(64.dp),
-                                    tint = Color.White.copy(alpha = 0.2f)
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text(
-                                    if (selectedDate != null) "No tasks for this date" else "All caught up!", 
-                                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.4f))
-                                )
-                            }
-                        }
+                        StatsRow(pendingTasks = pendingTasks, completedTasks = completedTasks, liquidColors = liquidColors)
                     }
-                } else {
-                    items(displayedPendingTasks, key = { it.id }) { task ->
-                        TaskCard(
-                            task = task,
-                            onComplete = { viewModel.completeTask(context, task) },
-                            onClick = { onTaskClick(task.id) }
-                        )
+                    
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        PendingTasksHeader(selectedDate = selectedDate, liquidColors = liquidColors, onClearFilter = { selectedDate = null })
                     }
+                    
+                    pendingTasksSection(displayedPendingTasks, selectedDate, viewModel, context, onTaskClick)
                 }
-            } // End LazyColumn
-
+            }
+            
             if (showAddTaskDialog) {
                 ManualAddTaskDialog(
                     onDismiss = { showAddTaskDialog = false },
@@ -423,6 +234,326 @@ fun DashboardScreen(
                 )
             }
         } // End Main Content Box
+    }
+}
+
+@Composable
+private fun DashboardHeader(
+    liquidColors: com.example.chattaskai.ui.theme.LiquidColors,
+    onSettingsClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text(
+                text = "Taskline",
+                style = MaterialTheme.typography.displayLarge.copy(
+                    fontFamily = FontLoader.lobster(),
+                    color = Color.White,
+                    fontSize = 42.sp
+                )
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Liquid Glass Edition",
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        fontFamily = FontLoader.ndot(),
+                        color = Color.White.copy(alpha = 0.7f),
+                        letterSpacing = 1.sp
+                    )
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("✦", color = liquidColors.purple, fontSize = 14.sp)
+            }
+        }
+        
+        IconButton(
+            onClick = onSettingsClick,
+            modifier = Modifier
+                .size(44.dp)
+                .background(Color.White.copy(alpha = 0.05f), CircleShape)
+                .border(1.dp, Color.White.copy(alpha = 0.1f), CircleShape)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = "Theme",
+                tint = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun QuoteCard(
+    dailyQuote: com.example.chattaskai.ui.Quote,
+    liquidColors: com.example.chattaskai.ui.theme.LiquidColors
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassMorphism(alpha = 0.15f, baseColor = Color.Black)
+            .padding(24.dp)
+    ) {
+        // Subtle Glow
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .align(Alignment.CenterEnd)
+                .offset(x = 40.dp, y = (-20).dp)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(liquidColors.purple.copy(alpha = 0.3f), Color.Transparent)
+                    )
+                )
+        )
+        
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(
+                "“",
+                color = liquidColors.purple,
+                fontSize = 48.sp,
+                fontFamily = FontLoader.lobster(),
+                lineHeight = 24.sp
+            )
+            Text(
+                dailyQuote.text,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                    fontWeight = FontWeight.Normal,
+                    color = Color.White.copy(alpha = 0.9f),
+                    lineHeight = 30.sp
+                )
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.width(20.dp).height(1.dp).background(liquidColors.purple.copy(alpha = 0.5f)))
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    dailyQuote.author.uppercase(),
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontFamily = FontLoader.ndot(),
+                        color = liquidColors.purple,
+                        letterSpacing = 2.sp
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatsRow(
+    pendingTasks: List<TaskEntity>,
+    completedTasks: List<TaskEntity>,
+    liquidColors: com.example.chattaskai.ui.theme.LiquidColors
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        val pendingCount = pendingTasks.size.toString().padStart(2, '0')
+        val todayStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+        val dueTodayCount = pendingTasks.count { it.deadlineDate == todayStr }.toString().padStart(2, '0')
+        val doneCount = completedTasks.size.toString().padStart(2, '0')
+
+        val stats = listOf(
+            Triple(pendingCount, "PENDING", liquidColors.purple),
+            Triple(dueTodayCount, "DUE\nTODAY", liquidColors.purple),
+            Triple(doneCount, "DONE", Color.White.copy(alpha = 0.3f))
+        )
+        
+        stats.forEach { (count, label, color) ->
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .aspectRatio(1f)
+                    .glassMorphism(alpha = 0.05f)
+                    .padding(16.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        count,
+                        color = color,
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontFamily = FontLoader.ndot(),
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                    Text(
+                        label,
+                        color = Color.White.copy(alpha = 0.4f),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontFamily = FontLoader.ndot(),
+                            lineHeight = 14.sp
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PendingTasksHeader(
+    selectedDate: LocalDate?,
+    liquidColors: com.example.chattaskai.ui.theme.LiquidColors,
+    onClearFilter: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = if (selectedDate != null) {
+                val formatter = java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy")
+                "Tasks for ${selectedDate.format(formatter)}"
+            } else {
+                "Pending Tasks"
+            },
+            style = MaterialTheme.typography.headlineLarge.copy(
+                fontFamily = FontLoader.lobster(),
+                color = Color.White,
+                fontSize = 28.sp
+            ),
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        if (selectedDate != null) {
+            TextButton(onClick = onClearFilter) {
+                Text("Clear Filter", color = liquidColors.cyan)
+            }
+        }
+    }
+}
+
+private fun LazyListScope.setupRequiredSection(
+    context: android.content.Context,
+    isServiceEnabled: Boolean,
+    hasPostPermission: Boolean,
+    hasAlarmPermission: Boolean
+) {
+    if (!isServiceEnabled) {
+        item {
+            SetupRequiredCard(
+                title = "Action Required",
+                description = "Enable Notification Access to start fetching tasks automatically from WhatsApp.",
+                buttonText = "Enable Access",
+                icon = Icons.Default.Settings,
+                onActionClick = { context.startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")) }
+            )
+        }
+    } else if (!hasPostPermission) {
+        item {
+            SetupRequiredCard(
+                title = "Notifications Restricted",
+                description = "Please allow notification permission to receive your task reminders.",
+                buttonText = "Allow Notifications",
+                icon = Icons.Default.CheckCircle,
+                onActionClick = { PermissionChecker.openNotificationSettings(context) }
+            )
+        }
+    } else if (!hasAlarmPermission) {
+        item {
+            SetupRequiredCard(
+                title = "Exact Alarms Blocked",
+                description = "The app needs permission to trigger precise alarms for your deadlines.",
+                buttonText = "Enable Exact Alarms",
+                icon = Icons.Default.DateRange,
+                onActionClick = { PermissionChecker.openExactAlarmSettings(context) }
+            )
+        }
+    }
+}
+
+private fun LazyListScope.apkUpdateSection(
+    availableApkUpdate: com.example.chattaskai.service.ApkUpdateInfo?,
+    context: android.content.Context,
+    viewModel: TaskViewModel
+) {
+    if (availableApkUpdate != null) {
+        item {
+            ApkUpdateCard(
+                latestVersionName = availableApkUpdate.latestVersionName ?: "",
+                latestVersionCode = availableApkUpdate.latestVersionCode ?: 0L,
+                releaseNotes = availableApkUpdate.releaseNotes.orEmpty(),
+                onUpdateClick = {
+                    val downloadUri = Uri.parse(availableApkUpdate.downloadUrl ?: return@ApkUpdateCard)
+                    val browserIntent = Intent(Intent.ACTION_VIEW, downloadUri)
+                    context.startActivity(browserIntent)
+                },
+                onDismiss = { viewModel.dismissApkUpdateCard() }
+            )
+        }
+    }
+}
+
+private fun LazyListScope.needsReviewSection(
+    reviewTasks: List<TaskEntity>,
+    viewModel: TaskViewModel,
+    context: android.content.Context,
+    onTaskClick: (Long) -> Unit
+) {
+    if (reviewTasks.isNotEmpty()) {
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Needs Review",
+                style = MaterialTheme.typography.headlineLarge.copy(
+                    fontFamily = FontLoader.lobster(),
+                    color = Color.White,
+                    fontSize = 28.sp
+                ),
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+        }
+
+        items(reviewTasks, key = { it.id }) { task ->
+            ReviewTaskCard(
+                task = task,
+                onApprove = { viewModel.approveReviewTask(context, task) },
+                onDismiss = { viewModel.dismissReviewTask(context, task) },
+                onClick = { onTaskClick(task.id) }
+            )
+        }
+    }
+}
+
+private fun LazyListScope.pendingTasksSection(
+    displayedPendingTasks: List<TaskEntity>,
+    selectedDate: java.time.LocalDate?,
+    viewModel: TaskViewModel,
+    context: android.content.Context,
+    onTaskClick: (Long) -> Unit
+) {
+    if (displayedPendingTasks.isEmpty()) {
+        item {
+            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = Color.White.copy(alpha = 0.2f)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        if (selectedDate != null) "No tasks for this date" else "All caught up!",
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.4f))
+                    )
+                }
+            }
+        }
+    } else {
+        items(displayedPendingTasks, key = { it.id }) { task ->
+            TaskCard(
+                task = task,
+                onComplete = { viewModel.completeTask(context, task) },
+                onClick = { onTaskClick(task.id) }
+            )
+        }
     }
 }
 
@@ -545,12 +676,22 @@ fun TaskCard(
     onClick: () -> Unit
 ) {
     val liquidColors = LocalLiquidColors.current
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp
+    
+    val padding = if (screenWidth < 360) 12.dp else if (screenWidth < 600) 18.dp else 24.dp
+    val titleSize = if (screenWidth < 360) 16.sp else if (screenWidth < 600) 19.sp else 22.sp
+    val checkButtonSize = if (screenWidth < 360) 44.dp else if (screenWidth < 600) 48.dp else 56.dp
+    val checkIconSize = if (screenWidth < 360) 24.dp else if (screenWidth < 600) 28.dp else 32.dp
+    val dateTextSize = if (screenWidth < 360) 10.sp else if (screenWidth < 600) 11.sp else 12.sp
+    val spacerHeight = if (screenWidth < 360) 8.dp else 12.dp
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .glassMorphism(alpha = 0.04f, cornerRadius = 32.dp)
             .clickable(onClick = onClick)
-            .padding(24.dp)
+            .padding(padding)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -563,10 +704,10 @@ fun TaskCard(
                     style = MaterialTheme.typography.titleLarge.copy(
                         fontWeight = FontWeight.Bold,
                         color = Color.White,
-                        fontSize = 22.sp
+                        fontSize = titleSize
                     )
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(spacerHeight))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Default.DateRange, 
@@ -579,13 +720,14 @@ fun TaskCard(
                         text = "${task.deadlineDate} @ ${task.deadlineTime}",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontFamily = FontLoader.ndot(),
-                            color = Color.White.copy(alpha = 0.4f)
+                            color = Color.White.copy(alpha = 0.4f),
+                            fontSize = dateTextSize
                         )
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     PriorityBadge(task.priority)
                 }
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(spacerHeight))
                 // Source and Sender Information
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -602,19 +744,34 @@ fun TaskCard(
                 }
             }
             
-            // Large Circular Check Button
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Large Circular Check Button with press scaling effect
+            val interactionSource = remember { MutableInteractionSource() }
+            val isPressed by interactionSource.collectIsPressedAsState()
+            val scale by animateFloatAsState(
+                targetValue = if (isPressed) 0.85f else 1.0f,
+                label = "scale"
+            )
+
             Box(
                 modifier = Modifier
-                    .size(56.dp)
-                    .background(liquidColors.purple, CircleShape)
-                    .clickable { onComplete() },
+                    .size(checkButtonSize)
+                    .scale(scale)
+                    .clip(CircleShape)
+                    .background(liquidColors.purple)
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = LocalIndication.current,
+                        onClick = onComplete
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.CheckCircle, 
                     contentDescription = "Complete",
                     tint = Color.White,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(checkIconSize)
                 )
             }
         }

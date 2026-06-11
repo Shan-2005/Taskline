@@ -117,13 +117,19 @@ fun TaskDetailScreen(taskId: Long, viewModel: TaskViewModel, onBack: () -> Unit)
         Box(modifier = Modifier.fillMaxSize()) {
             LiquidBackground()
             
-            Column(
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 20.dp)
-                    .verticalScroll(rememberScrollState())
+                    .padding(padding),
+                contentAlignment = Alignment.TopCenter
             ) {
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = 600.dp)
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
                 Spacer(modifier = Modifier.height(20.dp))
                 Box(
                     modifier = Modifier
@@ -235,4 +241,5 @@ fun TaskDetailScreen(taskId: Long, viewModel: TaskViewModel, onBack: () -> Unit)
             }
         }
     }
+}
 }

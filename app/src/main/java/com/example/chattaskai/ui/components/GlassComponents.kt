@@ -140,6 +140,7 @@ fun PriorityBadge(priority: String) {
     ) {
         androidx.compose.material3.Text(
             text = priority.uppercase(),
+            softWrap = false,
             style = androidx.compose.material3.MaterialTheme.typography.labelSmall.copy(
                 color = color,
                 fontWeight = androidx.compose.ui.text.font.FontWeight.Bold

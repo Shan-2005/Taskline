@@ -72,14 +72,20 @@ fun SettingsScreen(
             )
         }
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+                .padding(padding),
+            contentAlignment = Alignment.TopCenter
         ) {
+            Column(
+                modifier = Modifier
+                    .widthIn(max = 650.dp)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
             // Account & Sources Section
             SettingsGroup(title = "Account & Sources", icon = Icons.Default.Person) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -279,6 +285,7 @@ fun SettingsScreen(
             }
         }
     }
+}
 }
 
 @Composable
