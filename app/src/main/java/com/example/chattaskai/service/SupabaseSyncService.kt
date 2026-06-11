@@ -54,6 +54,9 @@ class SupabaseSyncService(
     }
 
     private fun ownerKey(profile: UserProfile): String {
+        if (profileStore.isCollaborativeSyncEnabled() && profileStore.getSharedGroupKey().isNotBlank()) {
+            return profileStore.getSharedGroupKey().trim().lowercase().replace(" ", "_")
+        }
         val preferred = profile.email.ifBlank { profile.displayName }
             .ifBlank { "taskline_user" }
             .trim()

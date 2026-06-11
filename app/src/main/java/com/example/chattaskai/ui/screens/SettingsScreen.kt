@@ -12,6 +12,7 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -122,6 +123,54 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.65f)
                     )
+                }
+            }
+
+            // Collaborative Sync Section
+            SettingsGroup(title = "Collaborative Task Sync", icon = Icons.Default.Share) {
+                var colabEnabled by remember { mutableStateOf(profileStore.isCollaborativeSyncEnabled()) }
+                var sharedKey by remember { mutableStateOf(profileStore.getSharedGroupKey()) }
+
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "Share tasks with family or team members using a shared secret group key.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.55f)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Enable Collaborative Sync", color = Color.White)
+                        Switch(
+                            checked = colabEnabled,
+                            onCheckedChange = {
+                                colabEnabled = it
+                                profileStore.setCollaborativeSyncEnabled(it)
+                            }
+                        )
+                    }
+
+                    if (colabEnabled) {
+                        OutlinedTextField(
+                            value = sharedKey,
+                            onValueChange = {
+                                sharedKey = it
+                                profileStore.setSharedGroupKey(it)
+                            },
+                            label = { Text("Shared Group Key", color = Color.White.copy(alpha = 0.6f)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = colors.purple,
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.3f)
+                            )
+                        )
+                    }
                 }
             }
 

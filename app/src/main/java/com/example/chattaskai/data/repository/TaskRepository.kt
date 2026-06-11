@@ -2,6 +2,7 @@ package com.example.chattaskai.data.repository
 
 import com.example.chattaskai.data.database.TaskDao
 import com.example.chattaskai.data.database.TaskEntity
+import com.example.chattaskai.data.database.SubTaskEntity
 import kotlinx.coroutines.flow.Flow
 
 class TaskRepository(private val taskDao: TaskDao) {
@@ -43,10 +44,18 @@ class TaskRepository(private val taskDao: TaskDao) {
     }
 
     suspend fun deleteTaskById(taskId: Long) {
+        taskDao.deleteSubTasksByTaskId(taskId)
         taskDao.deleteTaskById(taskId)
     }
 
     suspend fun updateTaskStatus(taskId: Long, status: String) {
         taskDao.updateTaskStatus(taskId, status)
     }
+
+    // Subtask repository methods
+    suspend fun insertSubTask(subTask: SubTaskEntity): Long = taskDao.insertSubTask(subTask)
+    suspend fun updateSubTask(subTask: SubTaskEntity) = taskDao.updateSubTask(subTask)
+    suspend fun deleteSubTaskById(subTaskId: Long) = taskDao.deleteSubTaskById(subTaskId)
+    fun getSubTasksForTask(taskId: Long): Flow<List<SubTaskEntity>> = taskDao.getSubTasksForTask(taskId)
+    suspend fun getSubTasksForTaskOnce(taskId: Long): List<SubTaskEntity> = taskDao.getSubTasksForTaskOnce(taskId)
 }

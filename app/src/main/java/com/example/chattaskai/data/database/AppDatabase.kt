@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [TaskEntity::class], version = 1, exportSchema = true)
+@Database(entities = [TaskEntity::class, SubTaskEntity::class], version = 2, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun taskDao(): TaskDao
@@ -20,7 +20,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "chattask_database"
-                ).build()
+                )
+                .fallbackToDestructiveMigration()
+                .build()
                 INSTANCE = instance
                 instance
             }

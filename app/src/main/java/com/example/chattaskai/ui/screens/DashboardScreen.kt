@@ -20,8 +20,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
-// Using standard icons only
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.material.ripple.rememberRipple
@@ -85,12 +87,21 @@ fun DashboardScreen(
         }
     }
 
-    val displayedPendingTasks = remember(pendingTasks, selectedDate) {
-        if (selectedDate != null) {
+    var selectedCategory by remember { mutableStateOf("All") }
+    var activeTab by remember { mutableStateOf("tasks") } // Bottom navigation state
+
+    val displayedPendingTasks = remember(pendingTasks, selectedDate, selectedCategory) {
+        val filteredByDate = if (selectedDate != null) {
             val dateStr = selectedDate!!.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"))
             pendingTasks.filter { it.deadlineDate == dateStr }
         } else {
             pendingTasks
+        }
+
+        if (selectedCategory != "All") {
+            filteredByDate.filter { it.category.equals(selectedCategory, ignoreCase = true) }
+        } else {
+            filteredByDate
         }
     }
 
@@ -104,63 +115,162 @@ fun DashboardScreen(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         containerColor = Color.Black,
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddTaskDialog = true },
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(CircleShape),
-                containerColor = liquidColors.purple,
-                contentColor = Color.White,
-                elevation = FloatingActionButtonDefaults.elevation(8.dp)
+        bottomBar = {
+            NavigationBar(
+                containerColor = Color.Black.copy(alpha = 0.8f),
+                modifier = Modifier.glassMorphism()
             ) {
-                Icon(imageVector = Icons.Default.Add, contentDescription = "Add Task", modifier = Modifier.size(32.dp))
+                NavigationBarItem(
+                    selected = activeTab == "tasks",
+                    onClick = { activeTab = "tasks" },
+                    icon = { Icon(Icons.Default.List, contentDescription = "Tasks") },
+                    label = { Text("Tasks") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = liquidColors.cyan,
+                        unselectedIconColor = Color.White.copy(alpha = 0.4f),
+                        selectedTextColor = liquidColors.cyan,
+                        unselectedTextColor = Color.White.copy(alpha = 0.4f),
+                        indicatorColor = Color.Transparent
+                    )
+                )
+                NavigationBarItem(
+                    selected = activeTab == "chat",
+                    onClick = { activeTab = "chat" },
+                    icon = { Icon(Icons.Default.Send, contentDescription = "AI Assistant") },
+                    label = { Text("AI Assistant") },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = liquidColors.cyan,
+                        unselectedIconColor = Color.White.copy(alpha = 0.4f),
+                        selectedTextColor = liquidColors.cyan,
+                        unselectedTextColor = Color.White.copy(alpha = 0.4f),
+                        indicatorColor = Color.Transparent
+                    )
+                )
+            }
+        },
+        floatingActionButton = {
+            if (activeTab == "tasks") {
+                FloatingActionButton(
+                    onClick = { showAddTaskDialog = true },
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape),
+                    containerColor = liquidColors.purple,
+                    contentColor = Color.White,
+                    elevation = FloatingActionButtonDefaults.elevation(8.dp)
+                ) {
+                    Icon(imageVector = Icons.Default.Add, contentDescription = "Add Task", modifier = Modifier.size(32.dp))
+                }
             }
         }
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
             LiquidBackground()
             
-            if (isTablet) {
-                // Two-column split layout for tablet/landscape
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .padding(horizontal = 24.dp),
-                    horizontalArrangement = Arrangement.spacedBy(24.dp)
-                ) {
-                    // Left Column: Header, Quote, Calendar, Stats
-                    Column(
+            val xp by viewModel.xp.collectAsState()
+            val level by viewModel.level.collectAsState()
+            val streak by viewModel.streak.collectAsState()
+            val levelUpAlert by viewModel.levelUpAlert.collectAsState()
+
+            if (levelUpAlert != null) {
+                AlertDialog(
+                    onDismissRequest = { viewModel.dismissLevelUpAlert() },
+                    title = { Text("🎉 Level Up!", color = Color.White, fontWeight = FontWeight.Bold) },
+                    text = { Text(levelUpAlert!!, color = Color.White.copy(alpha = 0.85f)) },
+                    confirmButton = {
+                        TextButton(onClick = { viewModel.dismissLevelUpAlert() }) {
+                            Text("Awesome!", color = liquidColors.cyan)
+                        }
+                    },
+                    containerColor = Color.DarkGray,
+                    tonalElevation = 8.dp
+                )
+            }
+
+            if (activeTab == "chat") {
+                AssistantChatScreen(
+                    viewModel = viewModel,
+                    modifier = Modifier.padding(padding)
+                )
+            } else {
+                if (isTablet) {
+                    // Two-column split layout for tablet/landscape
+                    Row(
                         modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                            .verticalScroll(rememberScrollState())
-                            .padding(vertical = 16.dp)
-                            .padding(bottom = 80.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                            .fillMaxSize()
+                            .padding(padding)
+                            .padding(horizontal = 24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
-                        DashboardHeader(liquidColors = liquidColors, onSettingsClick = onSettingsClick)
+                        // Left Column: Header, Quote, Calendar, Stats
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .verticalScroll(rememberScrollState())
+                                .padding(vertical = 16.dp)
+                                .padding(bottom = 80.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            DashboardHeader(liquidColors = liquidColors, onSettingsClick = onSettingsClick)
+                            
+                            QuoteCard(dailyQuote = dailyQuote, liquidColors = liquidColors)
+                            
+                            MonthlyCalendar(
+                                tasks = pendingTasks,
+                                selectedDate = selectedDate,
+                                onDateSelected = { selectedDate = it }
+                            )
+                            
+                            StatsRow(pendingTasks = pendingTasks, completedTasks = completedTasks, liquidColors = liquidColors)
+
+                            ProductivityStatsCard(xp = xp, level = level, streak = streak, liquidColors = liquidColors)
+                        }
                         
-                        QuoteCard(dailyQuote = dailyQuote, liquidColors = liquidColors)
-                        
-                        MonthlyCalendar(
-                            tasks = pendingTasks,
-                            selectedDate = selectedDate,
-                            onDateSelected = { selectedDate = it }
-                        )
-                        
-                        StatsRow(pendingTasks = pendingTasks, completedTasks = completedTasks, liquidColors = liquidColors)
+                        // Right Column: Notifications, Reviews, and Tasks list
+                        LazyColumn(
+                            modifier = Modifier
+                                .weight(1.2f)
+                                .fillMaxHeight(),
+                            contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            setupRequiredSection(context, isServiceEnabled, hasPostPermission, hasAlarmPermission)
+                            
+                            apkUpdateSection(availableApkUpdate, context, viewModel)
+                            
+                            needsReviewSection(reviewTasks, viewModel, context, onTaskClick)
+                            
+                            item {
+                                PendingTasksHeader(selectedDate = selectedDate, liquidColors = liquidColors, onClearFilter = { selectedDate = null })
+                                CategoryFilterRow(selectedCategory = selectedCategory, onCategorySelected = { selectedCategory = it }, liquidColors = liquidColors)
+                            }
+                            
+                            pendingTasksSection(displayedPendingTasks, selectedDate, viewModel, context, onTaskClick)
+                        }
                     }
-                    
-                    // Right Column: Notifications, Reviews, and Tasks list
+                } else {
+                    // Original single-column phone layout
                     LazyColumn(
                         modifier = Modifier
-                            .weight(1.2f)
-                            .fillMaxHeight(),
-                        contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp),
+                            .fillMaxSize()
+                            .padding(padding),
+                        contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 80.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        item {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .statusBarsPadding()
+                                    .padding(vertical = 16.dp)
+                            ) {
+                                DashboardHeader(liquidColors = liquidColors, onSettingsClick = onSettingsClick)
+                                Spacer(modifier = Modifier.height(24.dp))
+                                QuoteCard(dailyQuote = dailyQuote, liquidColors = liquidColors)
+                            }
+                        }
+                        
                         setupRequiredSection(context, isServiceEnabled, hasPostPermission, hasAlarmPermission)
                         
                         apkUpdateSection(availableApkUpdate, context, viewModel)
@@ -168,59 +278,30 @@ fun DashboardScreen(
                         needsReviewSection(reviewTasks, viewModel, context, onTaskClick)
                         
                         item {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            MonthlyCalendar(
+                                tasks = pendingTasks,
+                                selectedDate = selectedDate,
+                                onDateSelected = { selectedDate = it }
+                            )
+                        }
+                        
+                        item {
+                            StatsRow(pendingTasks = pendingTasks, completedTasks = completedTasks, liquidColors = liquidColors)
+                        }
+
+                        item {
+                            ProductivityStatsCard(xp = xp, level = level, streak = streak, liquidColors = liquidColors)
+                        }
+                        
+                        item {
+                            Spacer(modifier = Modifier.height(16.dp))
                             PendingTasksHeader(selectedDate = selectedDate, liquidColors = liquidColors, onClearFilter = { selectedDate = null })
+                            CategoryFilterRow(selectedCategory = selectedCategory, onCategorySelected = { selectedCategory = it }, liquidColors = liquidColors)
                         }
                         
                         pendingTasksSection(displayedPendingTasks, selectedDate, viewModel, context, onTaskClick)
                     }
-                }
-            } else {
-                // Original single-column phone layout
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    contentPadding = PaddingValues(start = 24.dp, end = 24.dp, bottom = 80.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .statusBarsPadding()
-                                .padding(vertical = 16.dp)
-                        ) {
-                            DashboardHeader(liquidColors = liquidColors, onSettingsClick = onSettingsClick)
-                            Spacer(modifier = Modifier.height(24.dp))
-                            QuoteCard(dailyQuote = dailyQuote, liquidColors = liquidColors)
-                        }
-                    }
-                    
-                    setupRequiredSection(context, isServiceEnabled, hasPostPermission, hasAlarmPermission)
-                    
-                    apkUpdateSection(availableApkUpdate, context, viewModel)
-                    
-                    needsReviewSection(reviewTasks, viewModel, context, onTaskClick)
-                    
-                    item {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        MonthlyCalendar(
-                            tasks = pendingTasks,
-                            selectedDate = selectedDate,
-                            onDateSelected = { selectedDate = it }
-                        )
-                    }
-                    
-                    item {
-                        StatsRow(pendingTasks = pendingTasks, completedTasks = completedTasks, liquidColors = liquidColors)
-                    }
-                    
-                    item {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        PendingTasksHeader(selectedDate = selectedDate, liquidColors = liquidColors, onClearFilter = { selectedDate = null })
-                    }
-                    
-                    pendingTasksSection(displayedPendingTasks, selectedDate, viewModel, context, onTaskClick)
                 }
             }
             
@@ -550,6 +631,7 @@ private fun LazyListScope.pendingTasksSection(
         items(displayedPendingTasks, key = { it.id }) { task ->
             TaskCard(
                 task = task,
+                viewModel = viewModel,
                 onComplete = { viewModel.completeTask(context, task) },
                 onClick = { onTaskClick(task.id) }
             )
@@ -672,6 +754,7 @@ fun isNotificationServiceEnabled(context: Context): Boolean {
 @Composable
 fun TaskCard(
     task: TaskEntity,
+    viewModel: TaskViewModel,
     onComplete: () -> Unit,
     onClick: () -> Unit
 ) {
@@ -727,6 +810,32 @@ fun TaskCard(
                     Spacer(modifier = Modifier.width(16.dp))
                     PriorityBadge(task.priority)
                 }
+
+                val subTasks by viewModel.getSubTasksForTask(task.id).collectAsState(initial = emptyList())
+                if (subTasks.isNotEmpty()) {
+                    val completedCount = subTasks.count { it.isCompleted }
+                    Spacer(modifier = Modifier.height(spacerHeight))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "Checklist: $completedCount/${subTasks.size}",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = liquidColors.cyan.copy(alpha = 0.9f),
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        LinearProgressIndicator(
+                            progress = completedCount.toFloat() / subTasks.size,
+                            modifier = Modifier
+                                .width(80.dp)
+                                .height(4.dp)
+                                .clip(CircleShape),
+                            color = liquidColors.cyan,
+                            trackColor = Color.White.copy(alpha = 0.15f)
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(spacerHeight))
                 // Source and Sender Information
                 Row(
@@ -981,6 +1090,284 @@ fun ManualAddTaskDialog(onDismiss: () -> Unit, onTaskAdded: (TaskEntity) -> Unit
                 ) {
                     Text("Add Task", fontWeight = FontWeight.Bold)
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AssistantChatScreen(viewModel: TaskViewModel, modifier: Modifier = Modifier) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val messages by viewModel.chatMessages.collectAsState()
+    val isLoading by viewModel.isChatLoading.collectAsState()
+    val liquidColors = LocalLiquidColors.current
+    var inputText by remember { mutableStateOf("") }
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    // Auto-scroll to the bottom when new messages arrive
+    LaunchedEffect(messages.size) {
+        if (messages.isNotEmpty()) {
+            listState.animateScrollToItem(messages.size - 1)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Header Card
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassMorphism()
+                    .padding(16.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .clip(CircleShape)
+                            .background(if (isLoading) liquidColors.purple else liquidColors.cyan)
+                    )
+                    Column {
+                        Text(
+                            text = "Taskline Assistant",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White
+                        )
+                        Text(
+                            text = if (isLoading) "Typing..." else "Online",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.White.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+            }
+
+            // Message List
+            androidx.compose.foundation.lazy.LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(messages) { msg ->
+                    val isAi = msg.sender != "User"
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = if (isAi) Arrangement.Start else Arrangement.End
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .widthIn(max = 280.dp)
+                                .clip(
+                                    RoundedCornerShape(
+                                        topStart = 16.dp,
+                                        topEnd = 16.dp,
+                                        bottomStart = if (isAi) 4.dp else 16.dp,
+                                        bottomEnd = if (isAi) 16.dp else 4.dp
+                                    )
+                                )
+                                .background(
+                                    if (isAi) {
+                                        Color.White.copy(alpha = 0.12f)
+                                    } else {
+                                        liquidColors.purple.copy(alpha = 0.85f)
+                                    }
+                                )
+                                .border(
+                                    1.dp,
+                                    if (isAi) Color.White.copy(alpha = 0.08f) else Color.Transparent,
+                                    RoundedCornerShape(
+                                        topStart = 16.dp,
+                                        topEnd = 16.dp,
+                                        bottomStart = if (isAi) 4.dp else 16.dp,
+                                        bottomEnd = if (isAi) 16.dp else 4.dp
+                                    )
+                                )
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            Column {
+                                Text(
+                                    text = msg.sender,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = if (isAi) liquidColors.cyan else liquidColors.pink,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = msg.text,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Input Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedTextField(
+                    value = inputText,
+                    onValueChange = { inputText = it },
+                    placeholder = { Text("Ask Assistant to do tasks...", color = Color.White.copy(alpha = 0.4f)) },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        focusedBorderColor = liquidColors.cyan,
+                        unfocusedBorderColor = Color.White.copy(alpha = 0.15f)
+                    )
+                )
+
+                IconButton(
+                    onClick = {
+                        if (inputText.isNotBlank()) {
+                            val textToSend = inputText.trim()
+                            inputText = ""
+                            viewModel.sendChatMessage(context, textToSend)
+                        }
+                    },
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(liquidColors.purple),
+                    enabled = !isLoading
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Send,
+                        contentDescription = "Send Message",
+                        tint = Color.White
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProductivityStatsCard(
+    xp: Int,
+    level: Int,
+    streak: Int,
+    liquidColors: com.example.chattaskai.ui.theme.LiquidColors
+) {
+    val progress = (xp % 100) / 100f
+    
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassMorphism(alpha = 0.12f, baseColor = Color.Black)
+            .padding(20.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        "Productivity Level",
+                        color = Color.White.copy(alpha = 0.5f),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    Text(
+                        "Level $level",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(liquidColors.pink.copy(alpha = 0.15f))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        "🔥 $streak Day Streak",
+                        color = liquidColors.pink,
+                        style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+            }
+            
+            // Progress Bar
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                LinearProgressIndicator(
+                    progress = progress,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(CircleShape),
+                    color = liquidColors.cyan,
+                    trackColor = Color.White.copy(alpha = 0.1f)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        "${xp % 100} XP",
+                        color = Color.White.copy(alpha = 0.6f),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        "100 XP to Level Up",
+                        color = Color.White.copy(alpha = 0.4f),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryFilterRow(
+    selectedCategory: String,
+    onCategorySelected: (String) -> Unit,
+    liquidColors: com.example.chattaskai.ui.theme.LiquidColors
+) {
+    val categories = listOf("All", "Work", "Personal", "Shopping", "Health")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        categories.forEach { cat ->
+            val isSelected = selectedCategory == cat
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (isSelected) liquidColors.cyan else Color.White.copy(alpha = 0.08f))
+                    .clickable { onCategorySelected(cat) }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = cat,
+                    color = if (isSelected) Color.Black else Color.White,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                )
             }
         }
     }

@@ -124,6 +124,24 @@ class ProfileStore(context: Context) {
             .distinctBy { it.lowercase() }
     }
 
+    fun getStreak(): Int = profilePrefs.getInt("current_streak", 0)
+    fun setStreak(streak: Int) = profilePrefs.edit().putInt("current_streak", streak).apply()
+
+    fun getXp(): Int = profilePrefs.getInt("total_xp", 0)
+    fun setXp(xp: Int) = profilePrefs.edit().putInt("total_xp", xp).apply()
+
+    fun getLevel(): Int = profilePrefs.getInt("level", 1)
+    fun setLevel(level: Int) = profilePrefs.edit().putInt("level", level).apply()
+
+    fun getLastCompletionDate(): String = profilePrefs.getString("last_completion_date", "") ?: ""
+    fun setLastCompletionDate(date: String) = profilePrefs.edit().putString("last_completion_date", date).apply()
+
+    fun isCollaborativeSyncEnabled(): Boolean = profilePrefs.getBoolean("enable_collaborative_sync", false)
+    fun setCollaborativeSyncEnabled(enabled: Boolean) = profilePrefs.edit().putBoolean("enable_collaborative_sync", enabled).apply()
+
+    fun getSharedGroupKey(): String = profilePrefs.getString("shared_group_key", "") ?: ""
+    fun setSharedGroupKey(key: String) = profilePrefs.edit().putString("shared_group_key", key).apply()
+
     companion object {
         private const val PROFILE_PREFS = "taskline_profile"
         private const val TRACKING_PREFS = "taskline_tracking"

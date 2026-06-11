@@ -39,4 +39,23 @@ interface TaskDao {
 
     @Query("UPDATE tasks SET status = :status WHERE id = :taskId")
     suspend fun updateTaskStatus(taskId: Long, status: String)
+
+    // Subtask Dao methods
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSubTask(subTask: SubTaskEntity): Long
+
+    @Update
+    suspend fun updateSubTask(subTask: SubTaskEntity)
+
+    @Query("DELETE FROM subtasks WHERE id = :subTaskId")
+    suspend fun deleteSubTaskById(subTaskId: Long)
+
+    @Query("DELETE FROM subtasks WHERE taskId = :taskId")
+    suspend fun deleteSubTasksByTaskId(taskId: Long)
+
+    @Query("SELECT * FROM subtasks WHERE taskId = :taskId ORDER BY id ASC")
+    fun getSubTasksForTask(taskId: Long): Flow<List<SubTaskEntity>>
+
+    @Query("SELECT * FROM subtasks WHERE taskId = :taskId ORDER BY id ASC")
+    suspend fun getSubTasksForTaskOnce(taskId: Long): List<SubTaskEntity>
 }

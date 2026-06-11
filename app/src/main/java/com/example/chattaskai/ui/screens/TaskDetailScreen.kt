@@ -1,6 +1,8 @@
 package com.example.chattaskai.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -40,6 +42,7 @@ fun TaskDetailScreen(taskId: Long, viewModel: TaskViewModel, onBack: () -> Unit)
     var editedTitle by remember { mutableStateOf(task?.title ?: "") }
     var editedDate by remember { mutableStateOf(task?.deadlineDate ?: "") }
     var editedTime by remember { mutableStateOf(task?.deadlineTime ?: "") }
+    var editedCategory by remember { mutableStateOf(task?.category ?: "General") }
 
     LaunchedEffect(task) {
         if (task == null) {
@@ -92,7 +95,8 @@ fun TaskDetailScreen(taskId: Long, viewModel: TaskViewModel, onBack: () -> Unit)
                                     title = editedTitle,
                                     deadlineDate = editedDate,
                                     deadlineTime = editedTime,
-                                    deadlineTimestamp = timestamp
+                                    deadlineTimestamp = timestamp,
+                                    category = editedCategory
                                 ))
                                 isEditing = false
                             }) {
@@ -181,6 +185,126 @@ fun TaskDetailScreen(taskId: Long, viewModel: TaskViewModel, onBack: () -> Unit)
                         Text("Priority", style = MaterialTheme.typography.labelLarge, color = LocalLiquidColors.current.pink)
                         Spacer(modifier = Modifier.height(8.dp))
                         PriorityBadge(task.priority)
+
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text("Category", style = MaterialTheme.typography.labelLarge, color = LocalLiquidColors.current.purple)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        if (isEditing) {
+                            val categories = listOf("General", "Work", "Personal", "Shopping", "Health")
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                categories.forEach { cat ->
+                                    val isSelected = editedCategory == cat
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(if (isSelected) LocalLiquidColors.current.cyan else Color.White.copy(alpha = 0.15f))
+                                            .clickable { editedCategory = cat }
+                                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    ) {
+                                        Text(cat, color = if (isSelected) Color.Black else Color.White, fontSize = 14.sp)
+                                    }
+                                }
+                            }
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(LocalLiquidColors.current.purple.copy(alpha = 0.2f))
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text(task.category, color = Color.White, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                }
+
+                // Subtasks Checklist Section
+                val subTasks by viewModel.getSubTasksForTask(task.id).collectAsState(initial = emptyList())
+                var newSubTaskTitle by remember { mutableStateOf("") }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                Text("Subtasks Checklist", style = MaterialTheme.typography.headlineSmall, color = Color.White)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .glassMorphism()
+                        .padding(16.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        subTasks.forEach { sub ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Checkbox(
+                                        checked = sub.isCompleted,
+                                        onCheckedChange = { viewModel.toggleSubTaskCompletion(sub) },
+                                        colors = CheckboxDefaults.colors(
+                                            checkedColor = LocalLiquidColors.current.cyan,
+                                            uncheckedColor = Color.White.copy(alpha = 0.5f)
+                                        )
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        sub.title,
+                                        color = if (sub.isCompleted) Color.White.copy(alpha = 0.4f) else Color.White,
+                                        style = if (sub.isCompleted) MaterialTheme.typography.bodyLarge.copy(
+                                            textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough
+                                        ) else MaterialTheme.typography.bodyLarge
+                                    )
+                                }
+                                IconButton(onClick = { viewModel.deleteSubTask(sub.id) }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete Subtask",
+                                        tint = Color.White.copy(alpha = 0.4f),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Add subtask input row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            OutlinedTextField(
+                                value = newSubTaskTitle,
+                                onValueChange = { newSubTaskTitle = it },
+                                placeholder = { Text("New subtask...", color = Color.White.copy(alpha = 0.5f)) },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedBorderColor = LocalLiquidColors.current.cyan,
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.2f)
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Button(
+                                onClick = {
+                                    if (newSubTaskTitle.isNotBlank()) {
+                                        viewModel.addSubTask(newSubTaskTitle.trim(), task.id)
+                                        newSubTaskTitle = ""
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = LocalLiquidColors.current.cyan)
+                            ) {
+                                Text("Add", color = Color.Black)
+                            }
+                        }
                     }
                 }
 
